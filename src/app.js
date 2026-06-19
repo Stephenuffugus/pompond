@@ -66,6 +66,14 @@
   const member=mid=>fam.members.find(m=>m.id===mid);
   const me=()=>member(meId);
   const choresFor=kid=>fam.chores.filter(c=>!c.assignedTo||c.assignedTo===kid.id);
+  // chores assigned to a grown-up — visibility/accountability only (no economy).
+  const adultChores=()=>fam.chores.filter(c=>{const m=member(c.assignedTo);return !!(m&&m.role==="parent");});
+  const choreDoneToday=c=>c.doneDate===today();
+  function toggleAdultChore(c){
+    if(choreDoneToday(c)){ c.doneDate=null; c.doneCount=Math.max(0,(c.doneCount||0)-1); }
+    else { c.doneDate=today(); c.doneCount=(c.doneCount||0)+1; }
+    save(); render();
+  }
   const rewardsTier=t=>fam.rewards.filter(r=>r.tier===t);
   const crittersOf=mid=>fam.critters.filter(c=>c.ownerId===mid);
   const invOf=mid=>fam.inventory.filter(i=>i.ownerId===mid);
@@ -282,6 +290,7 @@
       <div class="pond" id="pond"></div>
       <div class="label"><span>Do a chore</span><span class="ln"></span></div>
       <div class="chore-list" id="cl"></div>
+      ${adultChores().length?`<div class="label"><span>Grown-ups are doing chores too 💪</span><span class="ln"></span></div><div class="rows" id="adultcl"></div>`:""}
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Fill buckets for rewards!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
@@ -300,6 +309,13 @@
       d.innerHTML=`${done?'<span class="check">✓</span>':""}<span class="emo">${c.emoji}</span><span class="cn">${esc(c.name)}</span><span class="meta">${done?"Done today!":"⏱ "+fmt(c.secs)+" · "+pomIcon(13)+" "+c.palm}</span>`;
       d.onclick=()=>{ if(done){toast("Already done today ✅");return;} openTimer(kid,c); };
       cl.appendChild(d);});
+
+    const acl=app.querySelector("#adultcl");
+    if(acl) adultChores().forEach(c=>{const who=member(c.assignedTo);const done=choreDoneToday(c);
+      const row=document.createElement("div");row.className="row";if(who)row.style.setProperty("--kc",who.color);
+      row.innerHTML=`<span class="emo">${c.emoji}</span><div class="grow"><div class="rn">${esc(c.name)}</div><div class="rs">${who?esc(who.name):"Grown-up"}${(c.doneCount||0)?` · done ${c.doneCount}×`:""}</div></div>`
+        +(done?'<span class="mini" style="background:#5BB98C">✓ today</span>':'<span class="rs" style="color:var(--soft);font-weight:800">not yet</span>');
+      acl.appendChild(row);});
 
     if((kid.choices||0)>0) setTimeout(()=>choiceModal(kid),350);
   }
@@ -484,11 +500,19 @@
     const cr=app.querySelector("#choreRows");
     fam.chores.forEach(c=>{const row=document.createElement("div");row.className="row";
       const who=c.assignedTo?member(c.assignedTo):null;
-      row.innerHTML=`<span class="emo">${c.emoji}</span><div class="grow" style="cursor:pointer"><div class="rn">${esc(c.name)}</div><div class="rs">⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}</div></div>
-        <button class="mini ghost">Edit</button><button class="mini" style="background:#E5524B">✕</button>`;
+      const adult=!!(who&&who.role==="parent");
+      const meta = adult
+        ? `👤 ${esc(who.name)} · grown-up${(c.doneCount||0)?` · done ${c.doneCount}×`:""}`
+        : `⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}`;
+      const doneBtn = adult
+        ? `<button class="mini donebtn" style="${choreDoneToday(c)?"background:#5BB98C":"background:#fff;color:var(--soft);box-shadow:inset 0 0 0 2px var(--line)"}">${choreDoneToday(c)?"✓ Done":"Mark done"}</button>`
+        : "";
+      row.innerHTML=`<span class="emo">${c.emoji}</span><div class="grow" style="cursor:pointer"><div class="rn">${esc(c.name)}</div><div class="rs">${meta}</div></div>
+        ${doneBtn}<button class="mini ghost">Edit</button><button class="mini del" style="background:#E5524B">✕</button>`;
       row.querySelector(".grow").onclick=()=>choreSheet(c);
       row.querySelector(".ghost").onclick=()=>choreSheet(c);
-      row.querySelector(".mini:not(.ghost)").onclick=()=>{fam.chores=fam.chores.filter(x=>x.id!==c.id);save();render();};
+      row.querySelector(".del").onclick=()=>{fam.chores=fam.chores.filter(x=>x.id!==c.id);save();render();};
+      const db=row.querySelector(".donebtn"); if(db) db.onclick=()=>toggleAdultChore(c);
       cr.appendChild(row);});
 
     const rr=app.querySelector("#rewardRows");
@@ -560,7 +584,10 @@
     const isNew=!ch;
     const d=ch?{...ch}:{id:id(),name:"",emoji:C_EMOJI[Math.floor(Math.random()*C_EMOJI.length)],secs:300,palm:1,assignedTo:null};
     let mins=Math.floor(d.secs/60),secs=d.secs%60;
-    const kidOpts=`<option value="">Anyone</option>`+kids().map(k=>`<option value="${k.id}" ${d.assignedTo===k.id?"selected":""}>${esc(k.name)}</option>`).join("");
+    const adults=members().filter(m=>m.role==="parent");
+    const kidOpts=`<option value="">Anyone (kids)</option>`
+      +`<optgroup label="Kids">`+kids().map(k=>`<option value="${k.id}" ${d.assignedTo===k.id?"selected":""}>🧒 ${esc(k.name)}</option>`).join("")+`</optgroup>`
+      +(adults.length?`<optgroup label="Grown-ups (just for show — no Poms)">`+adults.map(a=>`<option value="${a.id}" ${d.assignedTo===a.id?"selected":""}>🧑 ${esc(a.name)}</option>`).join("")+`</optgroup>`:"");
     openSheet(`<h3>${isNew?"New chore":"Edit chore"}</h3>
       <div class="field"><label>Name</label><input id="cn" maxlength="20" value="${esc(d.name)}" placeholder="Chore name"></div>
       <div class="field"><label>Icon</label><div class="emo-grid" id="ce"></div></div>
