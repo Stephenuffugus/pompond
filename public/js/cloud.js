@@ -123,7 +123,7 @@ async function bootCloud() {
     saveCrud: async (fam) => {
       if (cloud.role !== 'parent' || !cloud.fid) return;
       const fid = cloud.fid, b = fsMod.writeBatch(db);
-      b.set(fsMod.doc(db,'families',fid), { name: fam.name, settings: fam.settings, setup: true }, { merge: true });
+      b.set(fsMod.doc(db,'families',fid), { name: fam.name, settings: fam.settings, setup: fam.setup === true }, { merge: true });
       for (const m of fam.members)
         b.set(fsMod.doc(db,'families',fid,'members',m.id),
           { name:m.name, emoji:m.emoji, color:m.color, role:m.role }, { merge: true });

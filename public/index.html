@@ -625,6 +625,9 @@
   /* ============================================================
      FIRST-RUN SETUP WIZARD
      ============================================================ */
+  const setupParent=()=>fam.members.find(m=>m.role==="parent");
+  const setupParentName=()=>{const p=setupParent();return p&&p.name&&p.name!=="Parent"?p.name:"";};
+  const setupPin=()=>{const p=fam.settings.parentPin;return p&&p!=="0000"?p:"";};
   function renderSetup(){
     document.body.classList.remove("editing");
     const kidList=kids().map(k=>`
@@ -639,21 +642,27 @@
       </div>
       <div class="setup-card">
         <div class="field"><label>Your family name</label><input id="sfn" maxlength="20" value="${esc(fam.name)}" placeholder="The Smiths"></div>
-        <div class="field"><label>Parent PIN <span style="text-transform:none;font-weight:700">(keeps kids out of the parent screen)</span></label>
-          <input id="spn" inputmode="numeric" maxlength="4" value="${esc(fam.settings.parentPin)}" placeholder="4 digits"></div>
+        <div class="field"><label>Your name <span style="text-transform:none;font-weight:700">(the grown-up)</span></label>
+          <input id="spnm" maxlength="14" value="${esc(setupParentName())}" placeholder="e.g. Mum, Dad, Sam"></div>
+        <div class="field"><label>Choose a Parent PIN <span style="text-transform:none;font-weight:700">(keeps kids out of the parent screen)</span></label>
+          <input id="spn" inputmode="numeric" maxlength="4" value="${esc(setupPin())}" placeholder="Pick 4 digits"></div>
         <div class="field"><label>Your kids</label>
           <div class="rows" id="skids">${kidList||'<div class="hint" style="margin:4px 0">No kids yet — add your first!</div>'}</div>
           <button class="iconbtn go" id="saddkid" style="width:100%;margin-top:10px;justify-content:center">+ Add a kid</button></div>
         <button class="btn-big" id="sgo" ${kids().length?"":"disabled"}>Let's go! 🎉</button>
         <div class="hint" style="margin-top:12px">Starter chores &amp; rewards are loaded — you can change everything later in the Parent screen.</div>
       </div>`;
-    const stash=()=>{ fam.name=app.querySelector("#sfn").value.trim()||fam.name; fam.settings.parentPin=app.querySelector("#spn").value||fam.settings.parentPin; };
+    const stash=()=>{ fam.name=app.querySelector("#sfn").value.trim()||fam.name;
+      fam.settings.parentPin=app.querySelector("#spn").value||fam.settings.parentPin;
+      const p=setupParent(),pn=app.querySelector("#spnm").value.trim(); if(p&&pn)p.name=pn; };
     app.querySelector("#saddkid").onclick=()=>{stash();kidSheet(null);};
     app.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{stash();kidSheet(member(b.dataset.edit));});
     app.querySelector("#sgo").onclick=()=>{
-      fam.name=app.querySelector("#sfn").value.trim()||"Our Family";
       const pin=app.querySelector("#spn").value.replace(/\D/g,"");
-      fam.settings.parentPin=(pin||"0000").padStart(4,"0").slice(0,4);
+      if(pin.length!==4){ toast("Choose a 4-digit Parent PIN 🔒"); const el=app.querySelector("#spn"); if(el)el.focus(); return; }
+      fam.name=app.querySelector("#sfn").value.trim()||"Our Family";
+      fam.settings.parentPin=pin;
+      const p=setupParent(),pn=app.querySelector("#spnm").value.trim(); if(p&&pn)p.name=pn;
       fam.setup=true; save(); view="lobby"; render(); confetti(); beep(true);
       if(cloudActive() && Backend.cloud.onSetupComplete) Backend.cloud.onSetupComplete(fam);
     };
