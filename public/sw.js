@@ -1,10 +1,11 @@
-/* Pom Pond service worker — offline-first app shell.
-   Precaches the local shell so the app launches with no signal; Firestore's own
-   offline persistence (js/cloud.js) handles family DATA offline and reconciles on
-   reconnect. Firebase SDK + fonts load from their CDNs and are cached at runtime.
-   Bump CACHE on any shell change (the no-cache header on sw.js ensures this file
-   itself is always revalidated). */
-const CACHE = 'pompond-v1';
+/* Pom Pond service worker.
+   NETWORK-FIRST for the app shell + same-origin code (index.html, js/*) so a new
+   deploy is picked up immediately when online; falls back to cache offline.
+   Firestore/Auth/Functions traffic is never touched (the SDK manages it). Bump
+   CACHE on any shell change — the no-cache header on sw.js makes the browser
+   revalidate this file, and a changed CACHE name purges every old cache on
+   activate, so clients can never get stuck on stale code. */
+const CACHE = 'pompond-v2';
 const SHELL = [
   './',
   './index.html',
@@ -35,13 +36,21 @@ self.addEventListener('fetch', (e) => {
   // Never cache Firestore/Functions/Auth traffic — let the SDK manage it.
   if (/firestore\.googleapis|firebaseio|identitytoolkit|googleapis\.com\/.*cloudfunctions|cloudfunctions\.net/.test(url.href)) return;
 
-  // App navigations: serve the cached shell first, fall back to network.
-  if (req.mode === 'navigate') {
-    e.respondWith(caches.match('./index.html').then((r) => r || fetch(req)).catch(() => caches.match('./index.html')));
+  const sameOrigin = url.origin === self.location.origin;
+
+  // App shell + same-origin code: NETWORK-FIRST so deploys land immediately;
+  // fall back to cache (then the cached index.html for navigations) when offline.
+  if (req.mode === 'navigate' || sameOrigin) {
+    e.respondWith(
+      fetch(req).then((res) => {
+        if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {}); }
+        return res;
+      }).catch(() => caches.match(req).then((r) => r || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+    );
     return;
   }
 
-  // Same-origin assets: cache-first. Cross-origin (CDN SDK, fonts): stale-while-revalidate.
+  // Cross-origin (CDN SDK, fonts — versioned URLs): stale-while-revalidate.
   e.respondWith(
     caches.match(req).then((cached) => {
       const net = fetch(req).then((res) => {
