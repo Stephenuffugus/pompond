@@ -187,7 +187,11 @@
       aura=`<defs><radialGradient id="${gid}"><stop offset="50%" stop-color="hsl(46,95%,62%,0)"/><stop offset="100%" stop-color="hsl(46,95%,58%,.5)"/></radialGradient></defs><circle cx="50" cy="56" r="49" fill="url(#${gid})"/><circle cx="50" cy="56" r="47" fill="none" stroke="hsl(45,95%,55%,.8)" stroke-width="2.5"/><circle cx="50" cy="56" r="43" fill="none" stroke="hsl(48,100%,70%,.5)" stroke-width="1"/>`;
       spark=sparkles(t,6);
     }
-    return `<svg viewBox="0 0 100 100" width="100%" height="100%">${aura}${inner}${accessory(t,ax,ay)}${spark}</svg>`;
+    // Soft white "sticker" outline around the whole critter (silhouette pops on
+    // any background). Standard SVG filter — supported by every modern browser.
+    const oid='o'+c;
+    const outline=`<filter id="${oid}" x="-18%" y="-18%" width="136%" height="136%"><feMorphology in="SourceAlpha" operator="dilate" radius="2.2" result="d"/><feFlood flood-color="#ffffff" result="w"/><feComposite in="w" in2="d" operator="in" result="o"/><feMerge><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%"><defs>${outline}</defs>${aura}<g filter="url(#${oid})">${inner}${accessory(t,ax,ay)}</g>${spark}</svg>`;
   }
 
   return {render,list:KEYS,randomArchetype:()=>KEYS[Math.floor(Math.random()*KEYS.length)],
