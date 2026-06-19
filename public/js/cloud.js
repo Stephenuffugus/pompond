@@ -136,11 +136,35 @@ async function bootCloud() {
     },
 
     accountSheet: () => accountSheet(),
-    joinCodeField: () => cloud.role==='parent'
-      ? `<div class="field"><label>Kid device join code</label><div class="minrow"><input id="jcode" value="${cloud.joinCode||'…'}" readonly style="flex:1"><button class="iconbtn" id="jregen" style="height:42px">↻</button></div><div class="hint" style="margin:6px 0 0;text-align:left">Kids enter this + their 4-digit code to sign in on their own device.</div></div>`
-      : '',
-    wireJoinCode: (s) => { const b = s.querySelector('#jregen'); if (b) b.onclick = () =>
-      fns.regenJoinCode({}).then(r => { cloud.joinCode = r.joinCode; const i = s.querySelector('#jcode'); if (i) i.value = r.joinCode; }); },
+    joinCodeField: () => {
+      if (cloud.role !== 'parent') return '';
+      const kids = (PP.getState().members || []).filter(m => m.role === 'child');
+      const codeRows = kids.map(k =>
+        `<div class="minrow" style="margin-top:8px"><span style="flex:1;font-weight:800">${k.emoji||'🧒'} ${(k.name||'Kid').replace(/</g,'&lt;')}</span>`+
+        `<input class="kidcode" data-mid="${k.id}" inputmode="numeric" maxlength="4" placeholder="4-digit" value="${(cloud.kidCodes&&cloud.kidCodes[k.id])||''}" style="width:90px;text-align:center"></div>`
+      ).join('');
+      return `<div class="field"><label>Kid sign-in</label>`+
+        `<div class="minrow"><input id="jcode" value="${cloud.joinCode||'…'}" readonly style="flex:1"><button class="iconbtn" id="jregen" style="height:42px">↻</button></div>`+
+        `<div class="hint" style="margin:6px 0 0;text-align:left">Kids open the app on their own device, tap “I’m a kid”, and enter this join code + their 4-digit code below.</div>`+
+        (kids.length?`<label style="margin-top:12px">Each kid’s 4-digit code</label>${codeRows}`:`<div class="hint" style="margin:8px 0 0;text-align:left">Add a kid first (Kids → + Kid), then set their code here.</div>`)+
+        `</div>`;
+    },
+    wireJoinCode: (s) => {
+      const b = s.querySelector('#jregen');
+      if (b) b.onclick = () => fns.regenJoinCode({}).then(r => { cloud.joinCode = r.joinCode; const i = s.querySelector('#jcode'); if (i) i.value = r.joinCode; PP.toast('New join code ✅'); });
+      s.querySelectorAll('.kidcode').forEach(inp => {
+        const commit = () => {
+          const code = (inp.value||'').replace(/\D/g,'').slice(0,4); inp.value = code;
+          if (code.length !== 4) return;
+          if ((cloud.kidCodes||{})[inp.dataset.mid] === code) return;
+          fns.setKidCode({ memberId: inp.dataset.mid, code })
+            .then(() => { (cloud.kidCodes = cloud.kidCodes||{})[inp.dataset.mid] = code; PP.toast('Kid code saved 🔑'); })
+            .catch(() => PP.toast('Couldn’t save that code'));
+        };
+        inp.onblur = commit;
+        inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } };
+      });
+    },
   };
   PP.setCloud(cloud);
 
@@ -157,6 +181,7 @@ async function bootCloud() {
     if (cloud.role === 'parent') {
       const a = await fsMod.getDoc(fsMod.doc(db,'families',fid,'private','auth')).catch(()=>null);
       cloud.joinCode = a && a.exists() ? (a.data().joinCode||'') : '';
+      cloud.kidCodes = a && a.exists() ? (a.data().kidCodes||{}) : {};
     }
     subscribe(fid, cloud.role, cloud.member);
   });

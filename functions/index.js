@@ -154,10 +154,22 @@ exports.createFamily = onCall(async (req) => {
   if (!hasParent) batch.set(ref.collection('members').doc('p1'),
     { id:'p1', name:data.parentName||'Parent', role:'parent', emoji:'🧑‍🍳', color:'#3FA7A1' });
 
-  // chores + rewards
-  const chores = (imp && imp.chores) || data.chores || [];
+  // chores + rewards — a fresh (non-migrated) family gets the starter set so the
+  // parent never lands in an empty app (matches the prototype's local defaults).
+  let chores = (imp && imp.chores) || data.chores || [];
+  if (!imp && chores.length === 0) chores = [
+    { id: Economy.id(), name:'Tidy Room',   emoji:'🛏️', secs:600, palm:1 },
+    { id: Economy.id(), name:'Dishes',      emoji:'🍽️', secs:300, palm:1 },
+    { id: Economy.id(), name:'Brush Teeth', emoji:'🪥', secs:120, palm:1 },
+    { id: Economy.id(), name:'Feed Pet',    emoji:'🐕', secs:180, palm:1 }
+  ];
   for (const c of chores) batch.set(ref.collection('chores').doc(c.id), c);
-  const rewards = (imp && imp.rewards) || data.rewards || [];
+  let rewards = (imp && imp.rewards) || data.rewards || [];
+  if (!imp && rewards.length === 0) rewards = [
+    { id: Economy.id(), name:'15 min screen time', emoji:'📺', tier:'small' },
+    { id: Economy.id(), name:'Pick dinner',        emoji:'🍕', tier:'medium' },
+    { id: Economy.id(), name:'Movie night',        emoji:'🎬', tier:'big' }
+  ];
   for (const r of rewards) batch.set(ref.collection('rewards').doc(r.id), r);
 
   // migrate economy artifacts intact (admin write — allowed)

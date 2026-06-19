@@ -31,6 +31,9 @@ const pUser = (await createUserWithEmailAndPassword(P.auth, `p${Date.now()}@test
 const { familyId: fid, joinCode } = await P.call('createFamily')({ name: 'Smoke Family' });
 await pUser.getIdToken(true); // pick up the parent custom claim
 ok('createFamily returns id + joinCode', !!fid && /^[A-Z2-9]{6}$/.test(joinCode));
+ok('fresh family seeded starter chores + rewards',
+   (await getDocs(collection(P.db, `families/${fid}/chores`))).size === 4 &&
+   (await getDocs(collection(P.db, `families/${fid}/rewards`))).size === 3);
 
 // parent adds a kid + a chore (config writes allowed by rules), sets the kid code.
 // Profile fields only — exactly like the app's saveCrud; the server seeds economy.
