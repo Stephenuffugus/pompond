@@ -17,7 +17,18 @@ const PP = window.PomPond;
 if (!firebaseConfig || firebaseConfig.apiKey === 'REPLACE_ME' || !PP) {
   console.info('[PomPond] Cloud dormant — running local-first. Fill js/firebase-config.js to enable sync.');
 } else {
-  bootCloud().catch(err => { console.error('[PomPond] cloud init failed; staying local.', err); });
+  // Cover the local-first wizard IMMEDIATELY (synchronously, before the async
+  // Firebase SDK loads) so the parent never sees the local wizard flash before
+  // the cloud sign-in screen — they should see exactly one screen at a time.
+  const _gate = document.getElementById('authgate');
+  if (_gate) {
+    _gate.innerHTML = '<div class="auth-card"><h2>🐸 Pom Pond</h2><p>Loading…</p></div>';
+    _gate.classList.add('show');
+  }
+  bootCloud().catch(err => {
+    console.error('[PomPond] cloud init failed; staying local.', err);
+    if (_gate) _gate.classList.remove('show');   // graceful fallback to local-first
+  });
 }
 
 async function bootCloud() {
