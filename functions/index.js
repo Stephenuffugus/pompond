@@ -133,14 +133,13 @@ exports.createFamily = onCall(async (req) => {
   const joinCode = (data.joinCode || code6()).toUpperCase();
 
   const batch = db.batch();
-  // A migrated family already has kids + config, so it's "set up" and lands in
-  // the lobby. A FRESH family starts setup:false so the parent runs the welcome
-  // wizard (name → their own PIN → add kids) instead of being dropped on the
-  // lobby with a mystery 0000 PIN.
-  const importedKids = !!(imp && Array.isArray(imp.members) && imp.members.some(m => m.role === 'child'));
+  // A newly created family ALWAYS starts setup:false, so the parent is forced
+  // through the welcome wizard and must choose their OWN PIN before they can use
+  // the app — even when migrating local data (the wizard pre-lists imported
+  // kids). Returning parents hit the early return above and are never re-onboarded.
   batch.set(ref, {
     name: (imp && imp.name) || data.name || 'Our Family',
-    setup: importedKids,
+    setup: false,
     settings,
     parentUids: [uid],
     createdAt: FieldValue.serverTimestamp()

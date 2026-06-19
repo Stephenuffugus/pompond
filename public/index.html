@@ -1115,7 +1115,12 @@
   PP.openSheet=openSheet; PP.closeSheet=closeSheet;
   PP.applySnapshot=(f)=>{                       // cloud pushes new family state
     fam=normalizeFam(f);
-    if(view==="setup" && fam.setup) view="lobby";
+    // A cloud family that isn't set up yet must run the welcome wizard, even if
+    // stale local state left us on the lobby. This is what guarantees a parent
+    // always chooses their own PIN before reaching the app (kids never onboard).
+    const amParent = !Backend.cloud.isParent || Backend.cloud.isParent();
+    if(!fam.setup && amParent){ meId=null; view="setup"; }
+    else if(view==="setup" && fam.setup) view="lobby";
     if((view==="kid"||view==="parent") && !member(meId)) { meId=null; view="lobby"; }
     render();
   };
