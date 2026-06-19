@@ -663,19 +663,23 @@
   /* ---------- install / add to home screen ---------- */
   function isStandalone(){return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;}
   function isiOS(){const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.test(ua)||(/Macintosh/i.test(ua)&&typeof document!=="undefined"&&'ontouchend' in document);}
+  function isAndroid(){return /android/i.test(navigator.userAgent||"");}
   function showInstall(){return !isStandalone();}
   function doInstall(){
     const dp=window.__ppInstall;
-    if(dp&&dp.prompt){ dp.prompt(); if(dp.userChoice)dp.userChoice.then(()=>{window.__ppInstall=null;render();}); return; }
+    if(dp&&dp.prompt){ dp.prompt(); if(dp.userChoice)dp.userChoice.then(()=>{window.__ppInstall=null;render();}); return; }  // native one-tap (Android/desktop Chrome)
     installSheet();
   }
   function installSheet(){
-    const ios=isiOS();
+    const ios=isiOS(), android=isAndroid();
+    const steps = ios
+      ? 'In <b>Safari</b>, tap the <b>Share</b> icon <span style="font-size:16px">⬆️</span> at the bottom, scroll down, and tap <b>“Add to Home Screen.”</b>'
+      : android
+      ? 'Tap the <b>⋮ menu</b> (top-right of Chrome) and choose <b>“Install app”</b> (or <b>“Add to Home screen”</b>).'
+      : 'Click the <b>install icon</b> in the address bar, or your browser menu → <b>“Install Pom Pond.”</b>';
     openSheet(`<h3>📲 Add Pom Pond to your phone</h3>
-      <p style="font-weight:700;color:var(--soft);font-size:14px;line-height:1.55;margin-top:-6px">${ios?
-        'In <b>Safari</b>, tap the <b>Share</b> icon <span style="font-size:16px">⬆️</span> at the bottom, scroll down, and tap <b>“Add to Home Screen.”</b>':
-        'Open your browser’s menu (<b>⋮</b> or <b>⋯</b>) and choose <b>“Install app”</b> or <b>“Add to Home screen.”</b>'}</p>
-      <p style="font-weight:700;color:var(--soft);font-size:13px">Pom Pond then opens full-screen like a real app — with its own icon on your home screen.</p>
+      <p style="font-weight:700;color:var(--soft);font-size:14px;line-height:1.55;margin-top:-6px">${steps}</p>
+      <p style="font-weight:700;color:var(--soft);font-size:13px">It then opens full-screen like a real app — with its own icon on your home screen.</p>
       <div class="sa"><button class="cancel">Got it 👍</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
   }
 
