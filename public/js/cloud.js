@@ -195,7 +195,7 @@ async function bootCloud() {
 
   // ---- auth state ----
   authMod.onAuthStateChanged(auth, async (user) => {
-    if (!user) { cloud.active = false; stopSync(); return signInGate(); }
+    if (!user) { cloud.active = false; stopSync(); return showWelcomeOrSignIn(); }
     const token = await user.getIdTokenResult(true);
     const fid = token.claims.familyId;
     if (!fid) {
@@ -213,6 +213,32 @@ async function bootCloud() {
   });
 
   // ---- gates ----
+  // First-ever visit gets a one-time welcome that explains the app (handy when a
+  // family opens the shared link directly rather than via the portal intro).
+  function showWelcomeOrSignIn() {
+    let seen = false; try { seen = localStorage.getItem('pp_seen_welcome') === '1'; } catch (e) {}
+    return seen ? signInGate() : welcomeGate();
+  }
+  function welcomeGate() {
+    const CE = (typeof window !== 'undefined') && window.CritterEngine;
+    const art = CE
+      ? ['frog','axolotl','duck'].map((a,i)=>`<div style="width:66px;height:66px">${CE.render('welcome:'+a+i,a,i===1?2:1)}</div>`).join('')
+      : '<div style="font-size:46px">🐸</div>';
+    showGate(`<div class="auth-card">
+      <div style="display:flex;justify-content:center;align-items:flex-end;gap:4px;margin-bottom:2px">${art}</div>
+      <h2>Welcome to Pom Pond 🐸</h2>
+      <p>A chore tracker &amp; reward center the whole family will actually enjoy.</p>
+      <div style="text-align:left;font-weight:700;color:var(--ink);font-size:14px;line-height:1.45;margin:0 0 18px">
+        <div style="margin:7px 0">✅ Kids do <b>chores</b> &amp; kind things to earn <b>Poms</b></div>
+        <div style="margin:7px 0">🐣 Every Pom hatches a <b>collectible critter</b> into their pond</div>
+        <div style="margin:7px 0">🎁 Filling buckets unlocks <b>rewards you choose</b></div>
+      </div>
+      <div class="sa"><button class="save" id="ppgo">Get started →</button></div>
+      <p style="font-size:12px;margin:13px 0 0">A grown-up signs up first, sets a PIN, and adds the kids.</p>
+    </div>`, g => {
+      g.querySelector('#ppgo').onclick = () => { try { localStorage.setItem('pp_seen_welcome','1'); } catch (e) {} signInGate(); };
+    });
+  }
   function signInGate() {
     showGate(`<div class="auth-card">
       <h2>🐸 Pom Pond</h2><p>Sign in to sync your family across devices.</p>
