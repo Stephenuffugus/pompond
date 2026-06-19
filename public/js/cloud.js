@@ -271,6 +271,7 @@ async function bootCloud() {
         <div class="field"><input id="pass" type="password" placeholder="Password" autocomplete="current-password"></div>
         <div class="sa"><button class="save" id="login">Sign in</button><button class="save" id="signup" style="background:#5BB98C">Create account</button></div>
         <button class="gbtn" id="google">Continue with Google</button>
+        <div class="hint" id="authmsg" style="margin-top:10px;min-height:16px;color:#E5524B"></div>
       </div>
       <div id="paneKid" style="display:none">
         <div class="field"><input id="jc" placeholder="Family join code" autocapitalize="characters"></div>
@@ -283,9 +284,21 @@ async function bootCloud() {
         g.querySelector('#paneParent').style.display=kid?'none':''; g.querySelector('#paneKid').style.display=kid?'':'none'; };
       tP.onclick=()=>show(false); tK.onclick=()=>show(true);
       const email=()=>g.querySelector('#email').value.trim(), pass=()=>g.querySelector('#pass').value;
-      g.querySelector('#login').onclick=()=>authMod.signInWithEmailAndPassword(auth,email(),pass()).catch(e=>PP.toast(authMsg(e)));
-      g.querySelector('#signup').onclick=()=>authMod.createUserWithEmailAndPassword(auth,email(),pass()).catch(e=>PP.toast(authMsg(e)));
-      g.querySelector('#google').onclick=()=>authMod.signInWithPopup(auth,new authMod.GoogleAuthProvider()).catch(e=>PP.toast(authMsg(e)));
+      const setMsg=(m)=>{ const el=g.querySelector('#authmsg'); if(el) el.textContent=m||''; };
+      // Email auth with VISIBLE feedback: validates, shows a working state on the
+      // button, and leaves any error on screen (toasts are too easy to miss).
+      const runEmail=(btn,fn)=>{
+        const e=email(), p=pass(); setMsg('');
+        if(!e){ setMsg('Enter your email address.'); return; }
+        if(!p || p.length<6){ setMsg('Password must be at least 6 characters.'); return; }
+        const orig=btn.textContent; btn.textContent='…'; btn.disabled=true;
+        Promise.resolve().then(()=>fn(auth,e,p))
+          .catch(err=>{ console.warn('[PomPond] email auth', err && err.code); setMsg(authMsg(err)); })
+          .finally(()=>{ btn.textContent=orig; btn.disabled=false; });
+      };
+      g.querySelector('#login').onclick=()=>runEmail(g.querySelector('#login'), authMod.signInWithEmailAndPassword);
+      g.querySelector('#signup').onclick=()=>runEmail(g.querySelector('#signup'), authMod.createUserWithEmailAndPassword);
+      g.querySelector('#google').onclick=()=>{ setMsg(''); authMod.signInWithPopup(auth,new authMod.GoogleAuthProvider()).catch(e=>setMsg(authMsg(e))); };
       g.querySelector('#kidgo').onclick=async()=>{
         const err=g.querySelector('#kiderr'); err.textContent='Connecting…';
         try {
@@ -393,9 +406,14 @@ async function bootCloud() {
 
   function authMsg(e) {
     const c = (e && (e.code||e.message)) || 'error';
+    if (/operation-not-allowed/.test(c)) return 'Email sign-in isn’t enabled for this app yet — use “Continue with Google” for now.';
     if (/wrong-password|invalid-credential|user-not-found/.test(c)) return 'Wrong email or password.';
-    if (/email-already-in-use/.test(c)) return 'That email already has an account — sign in.';
+    if (/invalid-email/.test(c)) return 'That email address doesn’t look right.';
+    if (/email-already-in-use/.test(c)) return 'That email already has an account — tap “Sign in” instead.';
     if (/weak-password/.test(c)) return 'Password should be at least 6 characters.';
+    if (/network-request-failed/.test(c)) return 'No internet connection — check your signal and try again.';
+    if (/too-many-requests/.test(c)) return 'Too many attempts — wait a minute and try again.';
+    if (/popup-closed|popup-blocked|cancelled-popup/.test(c)) return 'Sign-in popup was closed — try again.';
     if (/permission-denied|Wrong kid code/.test(c)) return 'Wrong code — ask a parent.';
     if (/not-found|Unknown join code/.test(c)) return 'That join code wasn\'t found.';
     return String(c).replace(/^.*\//,'').replace(/-/g,' ');
