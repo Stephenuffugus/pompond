@@ -64,7 +64,13 @@ async function applyEconomy(fid, memberId, mutate, opts) {
     if (!memberSnap.exists) throw new HttpsError('not-found', 'Member not found.');
     const kid = Object.assign({ id: memberId }, memberSnap.data());
     if (kid.role !== 'child') throw new HttpsError('failed-precondition', 'Not a child member.');
+    // seed economy defaults (a freshly-added kid is profile-only) so every
+    // persisted field is defined — Firestore rejects `undefined`.
     kid.buckets = kid.buckets || { s:0, m:0, b:0 };
+    kid.palms = kid.palms || 0;
+    kid.choices = kid.choices || 0;
+    kid.streak = kid.streak || 0;
+    if (kid.lastActive === undefined) kid.lastActive = null;
 
     // pre-read any done keys the mutation needs (daily-lock atomicity)
     const done = {};

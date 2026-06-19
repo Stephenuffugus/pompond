@@ -57,11 +57,10 @@ service cloud.firestore {
       // ---- members ----
       match /members/{memberId} {
         allow read: if inFamily(fid);
-        // Parent can add a kid, but not pre-load economy on creation.
+        // Parent can add a kid (profile fields only). Economy is never client-set:
+        // the server seeds palms/buckets/etc. lazily on the first earn.
         allow create: if isParent(fid)
-          && !request.resource.data.keys().hasAny(memberEconomyKeys()
-               .removeAll(['buckets','choices','streak','lastActive']))
-          && (!('palms' in request.resource.data) || request.resource.data.palms == 0);
+          && !request.resource.data.keys().hasAny(memberEconomyKeys());
         // Parent can edit profile fields only (name/emoji/color/role/assignment).
         // Economy fields are written exclusively by Cloud Functions (admin).
         allow update: if isParent(fid) && memberConfigOnly();
