@@ -18,6 +18,7 @@
   const C_EMOJI=["🧹","🧺","🍽️","🛏️","🗑️","🪥","🐕","🌱","📚","🧼","🚿","🧦","🧽","🍳","🪣","👕","🪟","🦷","✏️","🎒"];
   const R_EMOJI=["🍿","🎮","🍕","🎬","🍦","🛝","📺","🧸","💵","🎨","🎟️","🧁","⚽","🚲","🏊","🐶"];
   const KID_EMOJI=["🦊","🐼","🐯","🦁","🐸","🐵","🐶","🐱","🦄","🐧","🐢","🦖","🐙","🦋","🐝","🦉","🐰","🐨"];
+  const ADULT_EMOJI=["🧑‍🍳","👩","👨","👵","👴","🧕","👩‍🦰","🧔","👩‍🦳","👨‍🦳","🧑‍🌾","👩‍🏫","👨‍🍳","🦸","🧑‍💻","👩‍⚕️"];
   const COLORS=["#FF8A5B","#5BB1FF","#5BB98C","#C98BFF","#FFC24B","#FF6FA5","#4EC6C6","#9FCB55"];
 
   function defaultFamily(){
@@ -190,11 +191,12 @@
     document.body.classList.remove("editing");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>Pom Pond</h1></div>
-        <span>${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
+        <span>${showInstall()?'<button class="iconbtn go" id="install">📲 Get app</button> ':''}${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
       <div class="label"><span>Who's here?</span><span class="ln"></span></div>
       <div class="lobby-grid" id="lg"></div>
       <div class="hint">Parents manage chores & rewards · kids do chores and grow their Pond</div>`;
     app.querySelector("#gallery").onclick=galleryModal;
+    const ib=app.querySelector("#install"); if(ib)ib.onclick=doInstall;
     const acct=app.querySelector("#acct"); if(acct&&Backend.cloud.accountSheet) acct.onclick=()=>Backend.cloud.accountSheet();
     const lg=app.querySelector("#lg");
     fam.members.forEach(m=>{
@@ -235,7 +237,7 @@
     const ready=invOf(kid.id).filter(i=>i.status==="ready");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>${esc(fam.name)}</h1></div>
-        <span><button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
+        <span>${showInstall()?'<button class="iconbtn go" id="install">📲</button> ':''}<button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
       <div class="me" style="--kc:${kid.color}">
         <div class="disc">${kid.emoji}</div>
         <div class="info"><h2>${esc(kid.name)}'s Pond</h2>
@@ -254,6 +256,7 @@
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Fill buckets for rewards!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
+    const kib=app.querySelector("#install"); if(kib)kib.onclick=doInstall;
 
     if(ready.length){
       const tok=app.querySelector("#tok");
@@ -278,11 +281,22 @@
       <div class="frac">${val}/${cap}</div><div class="pbar"><i style="width:${pct}%"></i></div></div>`;
   }
   function paintPond(kid){
-    const pond=app.querySelector("#pond"); const list=crittersOf(kid.id).slice(-28);
-    pond.innerHTML=`<div class="pondcount">${crittersOf(kid.id).length} 🪷</div>`;
-    ["🪷","🪷","🍃"].forEach((e,i)=>{const l=document.createElement("div");l.className="lily";l.textContent=e;
-      l.style.left=(15+i*32)+"%";l.style.top=(20+((i*37)%55))+"%";pond.appendChild(l);});
-    if(!list.length){pond.innerHTML+=`<div class="empty">Your pond is empty.<br>Do a chore to hatch your first critter! 🐣</div>`;return;}
+    const pond=app.querySelector("#pond"); const all=crittersOf(kid.id); const list=all.slice(-28);
+    pond.innerHTML=`<div class="pondcount">${all.length} 🪷</div>`;
+    // CSS lily pads (disc with the classic V-notch), some with a lotus flower
+    [[12,60,58],[68,28,48],[42,76,42],[80,64,54]].forEach(([x,y,w],i)=>{
+      const p=document.createElement("div");p.className="pad";
+      p.style.left=x+"%";p.style.top=y+"%";p.style.width=w+"px";p.style.height=Math.round(w*0.7)+"px";
+      p.style.animationDelay=(i*0.8)+"s";pond.appendChild(p);
+      if(i%2===0){const f=document.createElement("div");f.className="lily";f.textContent="🌸";
+        f.style.left=(x+3)+"%";f.style.top=(y-3)+"%";f.style.fontSize="18px";f.style.animationDelay=(i*0.8)+"s";pond.appendChild(f);}
+    });
+    // reeds at the back corners + a few gentle ripples for life
+    [4,90].forEach(x=>{const r=document.createElement("div");r.className="reed";r.textContent="🌾";r.style.left=x+"%";pond.appendChild(r);});
+    [[30,42],[64,56],[48,72]].forEach(([x,y],i)=>{const rp=document.createElement("div");rp.className="ripple";
+      rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";pond.appendChild(rp);});
+    if(!list.length){const em=document.createElement("div");em.className="empty";
+      em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";pond.appendChild(em);return;}
     list.forEach((c,i)=>{const w=document.createElement("div");w.className="critter";
       w.style.left=(6+ (i*29)%82)+"%"; w.style.top=(18+(i*43)%62)+"%";
       w.style.animationDelay=(i%6)*0.4+"s"; w.style.cursor="pointer";
@@ -389,6 +403,8 @@
       ${deliver.length?`<div class="label"><span>Rewards to deliver 🎁</span><span class="ln"></span></div><div class="rows" id="deliver"></div>`:""}
       <div class="label"><span>Kids</span><span class="ln"></span><button class="iconbtn go" id="addKid" style="height:32px;padding:0 12px;font-size:13px">+ Kid</button></div>
       <div class="rows" id="kidRows"></div>
+      <div class="label"><span>Grown-ups</span><span class="ln"></span><button class="iconbtn go" id="addGrown" style="height:32px;padding:0 12px;font-size:13px">+ Grown-up</button></div>
+      <div class="rows" id="grownRows"></div>
       <div class="label"><span>Chores</span><span class="ln"></span><button class="iconbtn go" id="addChore" style="height:32px;padding:0 12px;font-size:13px">+ Chore</button></div>
       <div class="rows" id="choreRows"></div>
       <div class="label"><span>Rewards by tier</span><span class="ln"></span><button class="iconbtn go" id="addReward" style="height:32px;padding:0 12px;font-size:13px">+ Reward</button></div>
@@ -398,6 +414,7 @@
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
     app.querySelector("#settings").onclick=settingsSheet;
     app.querySelector("#addKid").onclick=()=>kidSheet(null);
+    app.querySelector("#addGrown").onclick=()=>grownupSheet(null);
     app.querySelector("#addChore").onclick=()=>choreSheet(null);
     app.querySelector("#addReward").onclick=()=>rewardSheet(null);
 
@@ -426,6 +443,14 @@
       row.querySelector(".mini:not(.ghost)").onclick=()=>kindnessSheet(k);
       row.querySelector(".ghost").onclick=()=>kidSheet(k);
       kr.appendChild(row);});
+
+    const grr=app.querySelector("#grownRows");
+    members().filter(m=>m.role==="parent").forEach(p=>{const row=document.createElement("div");row.className="row";row.style.setProperty("--kc",p.color);
+      row.innerHTML=`<span class="emo">${p.emoji}</span><div class="grow" style="cursor:pointer"><div class="rn">${esc(p.name)}</div><div class="rs">Grown-up${p.parentAuthId?" · has own login":""}</div></div>
+        <button class="mini ghost">Edit</button>`;
+      row.querySelector(".grow").onclick=()=>grownupSheet(p);
+      row.querySelector(".ghost").onclick=()=>grownupSheet(p);
+      grr.appendChild(row);});
 
     const cr=app.querySelector("#choreRows");
     fam.chores.forEach(c=>{const row=document.createElement("div");row.className="row";
@@ -559,6 +584,7 @@
       <div class="field"><label>What are points called? <span style="text-transform:none;font-weight:700">(Pom, Gem, Star…)</span></label><input id="cy" maxlength="12" value="${esc(cname())}"></div>
       <div class="field"><label>Parent PIN</label><input id="pn" inputmode="numeric" maxlength="4" value="${esc(st.parentPin)}"></div>
       ${cloudActive()&&Backend.cloud.joinCodeField?Backend.cloud.joinCodeField():""}
+      ${cloudActive()&&Backend.cloud.grownupCodeField?Backend.cloud.grownupCodeField():""}
       <div class="field"><label>Backup &amp; restore${cloudActive()?" <span style='text-transform:none;font-weight:700'>(your family is also synced to the cloud)</span>":""}</label>
         <div style="display:flex;gap:8px">
           <button id="bkup" class="iconbtn" style="flex:1;justify-content:center;height:42px">⬆ Copy backup</button>
@@ -571,6 +597,7 @@
       let appr=st.approval;const sw=s.querySelector("#ap");sw.onclick=()=>{appr=!appr;sw.classList.toggle("on",appr);};
       const tx=s.querySelector("#bktx");
       if(cloudActive()&&Backend.cloud.wireJoinCode) Backend.cloud.wireJoinCode(s);
+      if(cloudActive()&&Backend.cloud.wireGrownupCode) Backend.cloud.wireGrownupCode(s);
       s.querySelector("#bkup").onclick=()=>{
         try{ tx.value=btoa(unescape(encodeURIComponent(JSON.stringify(fam))));
           tx.select(); try{document.execCommand("copy");}catch(e){}
@@ -606,7 +633,51 @@
     });
   }
   function freeEmoji(){const u=members().map(m=>m.emoji);return KID_EMOJI.find(e=>!u.includes(e))||KID_EMOJI[0];}
+  function freeAdultEmoji(){const u=members().map(m=>m.emoji);return ADULT_EMOJI.find(e=>!u.includes(e))||ADULT_EMOJI[0];}
   function freeColor(){const u=members().map(m=>m.color);return COLORS.find(c=>!u.includes(c))||COLORS[0];}
+
+  /* ---------- grown-ups (co-parents, grandparents) ---------- */
+  function grownupSheet(g){
+    const isNew=!g;
+    const d=g?{...g}:{id:id(),name:"",role:"parent",emoji:freeAdultEmoji(),color:freeColor()};
+    const adults=members().filter(m=>m.role==="parent");
+    const canRemove=!isNew && adults.length>1;
+    openSheet(`<h3>${isNew?"Add a grown-up":"Edit grown-up"}</h3>
+      <div class="field"><label>Name</label><input id="gn" maxlength="14" value="${esc(d.name)}" placeholder="Mum, Dad, Grandma…"></div>
+      <div class="field"><label>Character</label><div class="emo-grid" id="ge"></div></div>
+      <div class="field"><label>Color</label><div class="swatch-row" id="gc"></div></div>
+      ${cloudActive()?`<div class="hint" style="text-align:left;margin:2px 0 8px">Want them on their <b>own phone</b> with their own login? Share the <b>grown-up invite code</b> in ⚙︎ Settings — they sign up and join as a full co-parent. This just adds a tile that shares this device &amp; the Parent PIN.</div>`:`<div class="hint" style="text-align:left;margin:2px 0 8px">Adds a grown-up who shares this device and the Parent PIN.</div>`}
+      <div class="sa">${canRemove?'<button class="cancel" id="gdel" style="background:#E5524B;color:#fff">Remove</button>':""}<button class="cancel">Cancel</button><button class="save">${isNew?"Add":"Save"}</button></div>`,s=>{
+      const eg=s.querySelector("#ge");ADULT_EMOJI.forEach(em=>{const b=document.createElement("button");b.textContent=em;if(em===d.emoji)b.classList.add("pick");
+        b.onclick=()=>{d.emoji=em;eg.querySelectorAll("button").forEach(x=>x.classList.remove("pick"));b.classList.add("pick");};eg.appendChild(b);});
+      const cg=s.querySelector("#gc");COLORS.forEach(col=>{const sw=document.createElement("div");sw.className="swatch"+(col===d.color?" pick":"");sw.style.background=col;
+        sw.onclick=()=>{d.color=col;cg.querySelectorAll(".swatch").forEach(x=>x.classList.remove("pick"));sw.classList.add("pick");};cg.appendChild(sw);});
+      s.querySelectorAll(".cancel").forEach(b=>{if(b.id!=="gdel")b.onclick=closeSheet;});
+      const del=s.querySelector("#gdel");if(del)del.onclick=()=>{fam.members=fam.members.filter(m=>m.id!==g.id);save();closeSheet();render();};
+      s.querySelector(".save").onclick=()=>{d.name=s.querySelector("#gn").value.trim()||"Grown-up";
+        if(isNew)fam.members.push(d);else Object.assign(g,d);save();closeSheet();render();};
+      setTimeout(()=>{const el=s.querySelector("#gn");if(el)el.focus();},60);
+    });
+  }
+
+  /* ---------- install / add to home screen ---------- */
+  function isStandalone(){return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;}
+  function isiOS(){const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.test(ua)||(/Macintosh/i.test(ua)&&typeof document!=="undefined"&&'ontouchend' in document);}
+  function showInstall(){return !isStandalone();}
+  function doInstall(){
+    const dp=window.__ppInstall;
+    if(dp&&dp.prompt){ dp.prompt(); if(dp.userChoice)dp.userChoice.then(()=>{window.__ppInstall=null;render();}); return; }
+    installSheet();
+  }
+  function installSheet(){
+    const ios=isiOS();
+    openSheet(`<h3>📲 Add Pom Pond to your phone</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:14px;line-height:1.55;margin-top:-6px">${ios?
+        'In <b>Safari</b>, tap the <b>Share</b> icon <span style="font-size:16px">⬆️</span> at the bottom, scroll down, and tap <b>“Add to Home Screen.”</b>':
+        'Open your browser’s menu (<b>⋮</b> or <b>⋯</b>) and choose <b>“Install app”</b> or <b>“Add to Home screen.”</b>'}</p>
+      <p style="font-weight:700;color:var(--soft);font-size:13px">Pom Pond then opens full-screen like a real app — with its own icon on your home screen.</p>
+      <div class="sa"><button class="cancel">Got it 👍</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
+  }
 
   /* ============================================================
      FX
@@ -653,5 +724,10 @@
     else revealQ=[];
   };
   PP.boot=render;
+
+  if(typeof window!=="undefined"&&window.addEventListener){
+    window.addEventListener('pp-installable',()=>{ if(view==="lobby"||view==="kid")render(); });
+    window.addEventListener('pp-installed',()=>render());
+  }
 
   render();

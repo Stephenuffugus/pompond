@@ -78,17 +78,42 @@
   .bucket.m i{background:linear-gradient(90deg,#5BB1FF,#9ccfff)}
   .bucket.b i{background:linear-gradient(90deg,var(--gold),#ffd98a)}
 
-  /* pond */
-  .pond{margin-top:14px;border-radius:26px;min-height:200px;position:relative;overflow:hidden;
+  /* pond — layered water that actually reads like a pond */
+  .pond{margin-top:14px;border-radius:26px;min-height:240px;position:relative;overflow:hidden;
     background:
-      radial-gradient(120% 80% at 50% -10%, #BfeAe6 0%, transparent 60%),
-      linear-gradient(180deg,#9CDBD6,#5FB7C6 60%,#3F8FB0);
-    box-shadow:var(--shadow);padding:10px}
-  .pond .lily{position:absolute;font-size:26px;opacity:.55}
-  .pond .empty{position:absolute;inset:0;display:grid;place-items:center;color:#eafcfa;font-weight:800;text-align:center;padding:20px;font-size:15px}
-  .critter{position:absolute;width:64px;height:64px;animation:bob 6s ease-in-out infinite;filter:drop-shadow(0 4px 4px rgba(0,40,40,.25))}
+      radial-gradient(130% 85% at 50% -18%, #D6F2EE 0%, rgba(214,242,238,0) 55%),
+      radial-gradient(80% 60% at 78% 18%, rgba(255,255,255,.35) 0%, transparent 45%),
+      linear-gradient(180deg,#93D6D2 0%,#5FB7C6 42%,#3E92B4 78%,#2C77A0 100%);
+    box-shadow:var(--shadow), inset 0 -34px 54px -22px rgba(6,34,54,.55), inset 0 16px 36px -20px rgba(255,255,255,.7);
+    padding:10px;border:1px solid rgba(255,255,255,.45)}
+  /* moving surface shimmer + soft caustics */
+  .pond::before{content:"";position:absolute;inset:-20%;pointer-events:none;opacity:.45;
+    background:repeating-linear-gradient(118deg, rgba(255,255,255,.10) 0 7px, transparent 7px 20px);
+    animation:shimmer 16s linear infinite}
+  @keyframes shimmer{from{transform:translateX(-60px)}to{transform:translateX(60px)}}
+  /* depth vignette */
+  .pond::after{content:"";position:absolute;inset:0;border-radius:26px;pointer-events:none;
+    box-shadow:inset 0 0 70px rgba(8,36,58,.28)}
+  .pond .lily{position:absolute;font-size:28px;opacity:.9;filter:drop-shadow(0 3px 3px rgba(0,30,40,.32));
+    animation:lilybob 8s ease-in-out infinite}
+  @keyframes lilybob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  /* CSS lily pads — green disc with the classic V notch */
+  .pond .pad{position:absolute;border-radius:50%;
+    background:radial-gradient(circle at 38% 32%, #82CE93 0%, #4FA86A 55%, #3C8A57 100%);
+    box-shadow:0 5px 10px -4px rgba(0,40,30,.45), inset 0 -5px 9px rgba(0,40,30,.28);
+    clip-path:polygon(0 0,45% 0,50% 46%,55% 0,100% 0,100% 100%,0 100%);opacity:.96;
+    animation:lilybob 9s ease-in-out infinite}
+  .pond .reed{position:absolute;bottom:-6px;font-size:34px;opacity:.92;filter:drop-shadow(0 2px 2px rgba(0,30,40,.3))}
+  .pond .ripple{position:absolute;width:26px;height:14px;border:2px solid rgba(255,255,255,.45);border-radius:50%;
+    pointer-events:none;animation:ripple 6s ease-out infinite}
+  @keyframes ripple{0%{transform:scale(.4);opacity:.0}25%{opacity:.55}100%{transform:scale(2.1);opacity:0}}
+  .pond .empty{position:absolute;inset:0;display:grid;place-items:center;color:#f1fffd;font-weight:800;text-align:center;padding:20px;font-size:15px;text-shadow:0 2px 8px rgba(0,30,45,.45)}
+  .critter{position:absolute;width:64px;height:64px;animation:bob 6s ease-in-out infinite;
+    filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
+  .critter::after{content:"";position:absolute;left:14%;right:14%;bottom:-7px;height:8px;border-radius:50%;
+    background:rgba(6,40,56,.28);filter:blur(2px)}
   @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
-  .pondcount{position:absolute;top:8px;right:12px;background:rgba(255,255,255,.85);border-radius:14px;padding:3px 10px;font-weight:800;font-size:12px;color:var(--ink)}
+  .pondcount{position:absolute;top:8px;right:12px;background:rgba(255,255,255,.9);border-radius:14px;padding:3px 10px;font-weight:800;font-size:12px;color:var(--ink);z-index:2}
 
   /* chore list */
   .chore-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
@@ -233,6 +258,20 @@
 <div class="reveal" id="reveal"></div>
 <div class="burst" id="burst"></div>
 <div class="authgate" id="authgate"></div>
+
+<!-- PWA install: capture the browser's install prompt as early as possible so the
+     app can offer an obvious "Add to Home Screen" button on demand. -->
+<script>
+  window.__ppInstall = null;
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); window.__ppInstall = e;
+    try { window.dispatchEvent(new Event('pp-installable')); } catch(_){}
+  });
+  window.addEventListener('appinstalled', function(){
+    window.__ppInstall = null;
+    try { window.dispatchEvent(new Event('pp-installed')); } catch(_){}
+  });
+</script>
 
 <!-- CORE: local-first app (CritterEngine + economy + store + UI). Inlined at build time
      so the jsdom harness runs it with zero network. See build.mjs / src/*.js -->

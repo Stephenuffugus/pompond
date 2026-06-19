@@ -131,6 +131,7 @@ exports.createFamily = onCall(async (req) => {
     (imp && imp.settings) || data.settings || {}
   );
   const joinCode = (data.joinCode || code6()).toUpperCase();
+  const parentCode = code6(); // grown-up invite code (co-parents / grandparents)
 
   const batch = db.batch();
   // A newly created family ALWAYS starts setup:false, so the parent is forced
@@ -184,10 +185,11 @@ exports.createFamily = onCall(async (req) => {
     for (const k of Object.keys(imp.done||{})) batch.set(ref.collection('done').doc(k), { ownerId:(k.split('|')[0]), at: Date.now() });
   }
 
-  // private auth doc (join code + per-kid codes) — parents only, kids can't read
-  batch.set(ref.collection('private').doc('auth'), { joinCode, kidCodes });
-  // top-level joinCode -> family map for bindDevice lookup
+  // private auth doc (join code + per-kid codes + grown-up code) — parents only.
+  batch.set(ref.collection('private').doc('auth'), { joinCode, kidCodes, parentCode });
+  // top-level code -> family maps (read by Cloud Functions via Admin SDK only).
   batch.set(db.collection('joinCodes').doc(joinCode), { familyId: fid });
+  batch.set(db.collection('parentCodes').doc(parentCode), { familyId: fid });
 
   await batch.commit();
   await auth.setCustomUserClaims(uid, { familyId: fid, role: 'parent' });
@@ -205,6 +207,45 @@ exports.regenJoinCode = onCall(async (req) => {
   await authRef.set({ joinCode }, { merge: true });
   await db.collection('joinCodes').doc(joinCode).set({ familyId: fid });
   return { joinCode };
+});
+
+// A second adult (partner, grandparent) joins an existing family as a full
+// co-parent using the family's grown-up invite code. Mints a parent claim and
+// creates their parent member. One family per uid for v1.
+exports.joinFamilyAsParent = onCall(async (req) => {
+  const a = requireAuth(req);
+  const uid = a.uid;
+  if (a.token.familyId) return { familyId: a.token.familyId, existed: true };
+  const code = String((req.data && req.data.code) || '').toUpperCase().trim();
+  const name = (String((req.data && req.data.name) || '').trim() || 'Parent').slice(0, 14);
+  if (!code) throw new HttpsError('invalid-argument', 'Grown-up code required.');
+  const map = await db.collection('parentCodes').doc(code).get();
+  if (!map.exists) throw new HttpsError('not-found', 'Unknown grown-up code.');
+  const fid = map.data().familyId;
+  const ref = famRef(fid);
+  if (!(await ref.get()).exists) throw new HttpsError('not-found', 'Family not found.');
+
+  const mid = 'pa_' + uid.slice(0, 10);
+  const batch = db.batch();
+  batch.set(ref, { parentUids: FieldValue.arrayUnion(uid) }, { merge: true });
+  batch.set(ref.collection('members').doc(mid),
+    { id: mid, name, role: 'parent', emoji: '🧑', color: '#7C6FF0', parentAuthId: uid }, { merge: true });
+  await batch.commit();
+  await auth.setCustomUserClaims(uid, { familyId: fid, role: 'parent' });
+  return { familyId: fid, memberId: mid };
+});
+
+// Parent regenerates the grown-up invite code.
+exports.regenParentCode = onCall(async (req) => {
+  const { fid } = requireParent(req);
+  const ref = famRef(fid);
+  const authRef = ref.collection('private').doc('auth');
+  const cur = (await authRef.get()).data() || {};
+  if (cur.parentCode) await db.collection('parentCodes').doc(cur.parentCode).delete().catch(()=>{});
+  const parentCode = code6();
+  await authRef.set({ parentCode }, { merge: true });
+  await db.collection('parentCodes').doc(parentCode).set({ familyId: fid });
+  return { parentCode };
 });
 
 // Parent sets/updates a kid's 4-digit device code.

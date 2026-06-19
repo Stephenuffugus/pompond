@@ -87,5 +87,21 @@ await P.call('markGiven')({ itemId: smallId });
 item = (await getDoc(doc(P.db,`families/${fid}/inventory/${smallId}`))).data();
 ok('parent markGiven flips redeemed → given', item.status === 'given');
 
+// ---------- co-parent (grandparent) joins via the grown-up invite code ----------
+const authDoc = (await getDoc(doc(P.db, `families/${fid}/private/auth`))).data();
+ok('family has a grown-up invite code', /^[A-Z2-9]{6}$/.test(authDoc.parentCode || ''));
+const G = makeClient('grandparent');
+const gUser = (await createUserWithEmailAndPassword(G.auth, `g${Date.now()}@test.com`, 'pw123456')).user;
+await throws('joinFamilyAsParent rejects a bad code', G.call('joinFamilyAsParent')({ code: 'ZZZZZZ', name: 'Nope' }));
+const joined = await G.call('joinFamilyAsParent')({ code: authDoc.parentCode, name: 'Grandma' });
+await gUser.getIdToken(true); // pick up the co-parent claim
+ok('co-parent joined the same family', joined.familyId === fid);
+ok('co-parent member created with their name',
+   (await getDoc(doc(G.db, `families/${fid}/members/${joined.memberId}`))).data().name === 'Grandma');
+ok('co-parent can read the family', (await getDoc(doc(G.db, `families/${fid}`))).exists());
+const palmsBefore = (await kidDoc()).palms;
+await G.call('givePom')({ memberId: 'k1', src: 'kindness', note: 'from grandma' });
+ok('co-parent has full parent powers (can grant Poms)', (await kidDoc()).palms === palmsBefore + 1);
+
 console.log(`\n${fail === 0 ? '🎉 ALL PASS' : '⚠️  FAILURES'} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
