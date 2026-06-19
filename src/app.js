@@ -219,12 +219,41 @@
     }else{ meId=m.id; view="kid"; render(); }
   }
   function askPin(cb){
+    const canReset = cloudActive() && Backend.cloud && Backend.cloud.isParent && Backend.cloud.isParent();
     openSheet(`<h3>Parent PIN</h3>
       <div class="field"><label>Enter PIN</label><input id="pin" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-      <div class="sa"><button class="cancel">Cancel</button><button class="save">Enter</button></div>`,sheet=>{
+      <div class="hint" id="pinerr" style="color:#E5524B;min-height:16px;margin-top:-8px;text-align:left"></div>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save">Enter</button></div>
+      ${canReset?'<button class="gbtn" id="forgotpin" style="margin-top:10px">Forgot PIN? Reset it</button>':''}`,sheet=>{
+      const pin=sheet.querySelector("#pin");
+      const tryit=()=>{
+        const v=pin.value;
+        if(v===fam.settings.parentPin){ closeSheet(); cb(true); }
+        else { sheet.querySelector("#pinerr").textContent="Wrong PIN — try again."; pin.value=""; pin.focus(); }
+      };
       sheet.querySelector(".cancel").onclick=closeSheet;
-      sheet.querySelector(".save").onclick=()=>{const v=sheet.querySelector("#pin").value;closeSheet();cb(v===fam.settings.parentPin);};
-      setTimeout(()=>{const el=sheet.querySelector("#pin");if(el)el.focus();},60);
+      sheet.querySelector(".save").onclick=tryit;
+      pin.onkeydown=(e)=>{ if(e.key==="Enter"){ e.preventDefault(); tryit(); } };
+      const fp=sheet.querySelector("#forgotpin"); if(fp) fp.onclick=resetPinFlow;
+      setTimeout(()=>{if(pin)pin.focus();},60);
+    });
+  }
+  // A signed-in cloud parent can always reset the PIN (the PIN is just a
+  // keep-kids-out gate; the real auth is their account). Kids never see this.
+  function resetPinFlow(){
+    openSheet(`<h3>Reset Parent PIN 🔒</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin-top:-6px">You're signed in as a parent, so you can set a new PIN now.</p>
+      <div class="field"><label>New 4-digit PIN</label><input id="npin" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+      <div class="hint" id="npinerr" style="color:#E5524B;min-height:16px;margin-top:-8px;text-align:left"></div>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save">Save PIN</button></div>`,sheet=>{
+      const np=sheet.querySelector("#npin");
+      sheet.querySelector(".cancel").onclick=closeSheet;
+      sheet.querySelector(".save").onclick=()=>{
+        const v=(np.value||"").replace(/\D/g,"");
+        if(v.length!==4){ sheet.querySelector("#npinerr").textContent="Enter exactly 4 digits."; return; }
+        fam.settings.parentPin=v; save(); closeSheet(); toast("PIN updated 🔒 — tap your tile and enter it.");
+      };
+      setTimeout(()=>{if(np)np.focus();},60);
     });
   }
 
