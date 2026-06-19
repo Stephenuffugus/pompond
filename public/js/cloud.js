@@ -13,6 +13,7 @@ import { firebaseConfig, useEmulators } from './firebase-config.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.13.0';
 const PP = window.PomPond;
+let cloudReady = false; // true once Firebase auth has taken control of the gate
 
 if (!firebaseConfig || firebaseConfig.apiKey === 'REPLACE_ME' || !PP) {
   console.info('[PomPond] Cloud dormant — running local-first. Fill js/firebase-config.js to enable sync.');
@@ -25,9 +26,21 @@ if (!firebaseConfig || firebaseConfig.apiKey === 'REPLACE_ME' || !PP) {
     _gate.innerHTML = '<div class="auth-card"><h2>🐸 Pom Pond</h2><p>Loading…</p></div>';
     _gate.classList.add('show');
   }
+  const failGate = (msg) => {
+    if (!_gate) return;
+    _gate.innerHTML = '<div class="auth-card"><h2>🐸 Pom Pond</h2>'+
+      '<p>'+(msg||"Couldn’t connect. Check your internet and try again.")+'</p>'+
+      '<div class="sa"><button class="save" id="ppreload">Reload</button></div></div>';
+    _gate.classList.add('show');
+    const b = _gate.querySelector('#ppreload'); if (b) b.onclick = () => location.reload();
+  };
+  // Watchdog: never spin forever. If cloud hasn't taken over in 12s, offer a
+  // reload. The loading gate stays up the whole time, so the local-first setup
+  // wizard can never leak through before sign-in.
+  setTimeout(() => { if (!cloudReady) failGate('Still connecting… check your internet, then reload.'); }, 12000);
   bootCloud().catch(err => {
-    console.error('[PomPond] cloud init failed; staying local.', err);
-    if (_gate) _gate.classList.remove('show');   // graceful fallback to local-first
+    console.error('[PomPond] cloud init failed.', err);
+    if (!cloudReady) failGate('Couldn’t connect to the server. Check your internet and reload.');
   });
 }
 
@@ -41,11 +54,19 @@ async function bootCloud() {
 
   const app = initializeApp(firebaseConfig);
 
-  // Offline-first: persistent local cache + multi-tab sync. Writes queue offline
-  // and reconcile on reconnect; reads come from cache when there's no signal.
-  const db = fsMod.initializeFirestore(app, {
-    localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() })
-  });
+  // Offline-first WHEN POSSIBLE: a persistent local cache + multi-tab sync. If it
+  // can't initialize (multiple tabs, private mode, blocked/again-opened storage),
+  // fall back to the default in-memory cache so SIGN-IN ALWAYS WORKS — an
+  // offline-cache hiccup must never block the whole app.
+  let db;
+  try {
+    db = fsMod.initializeFirestore(app, {
+      localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() })
+    });
+  } catch (e) {
+    console.warn('[PomPond] persistent cache unavailable; using default cache.', e);
+    db = fsMod.getFirestore(app);
+  }
   const auth = authMod.getAuth(app);
   const functions = fnMod.getFunctions(app);
 
@@ -195,6 +216,7 @@ async function bootCloud() {
 
   // ---- auth state ----
   authMod.onAuthStateChanged(auth, async (user) => {
+    cloudReady = true;   // cloud has taken control of the gate; stop the watchdog
     if (!user) { cloud.active = false; stopSync(); return showWelcomeOrSignIn(); }
     const token = await user.getIdTokenResult(true);
     const fid = token.claims.familyId;
@@ -220,10 +242,11 @@ async function bootCloud() {
     return seen ? signInGate() : welcomeGate();
   }
   function welcomeGate() {
-    const CE = (typeof window !== 'undefined') && window.CritterEngine;
-    const art = CE
-      ? ['frog','axolotl','duck'].map((a,i)=>`<div style="width:66px;height:66px">${CE.render('welcome:'+a+i,a,i===1?2:1)}</div>`).join('')
-      : '<div style="font-size:46px">🐸</div>';
+    let art = '<div style="font-size:46px">🐸</div>';
+    try {
+      const CE = (typeof window !== 'undefined') && window.CritterEngine;
+      if (CE) art = ['frog','axolotl','duck'].map((a,i)=>`<div style="width:66px;height:66px">${CE.render('welcome:'+a+i,a,i===1?2:1)}</div>`).join('');
+    } catch (e) {}
     showGate(`<div class="auth-card">
       <div style="display:flex;justify-content:center;align-items:flex-end;gap:4px;margin-bottom:2px">${art}</div>
       <h2>Welcome to Pom Pond 🐸</h2>
