@@ -8,12 +8,13 @@
    cloud sync automatically. These values are NOT secrets (web config is public);
    real security lives in firestore.rules + the Cloud Functions. */
 export const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME.appspot.com",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME"
+  apiKey: "AIzaSyBQehiZrzCvikQ7ry8Bs0vTczaaCYRRVv0",
+  authDomain: "pom-pond.firebaseapp.com",
+  projectId: "pom-pond",
+  storageBucket: "pom-pond.firebasestorage.app",
+  messagingSenderId: "802506405237",
+  appId: "1:802506405237:web:e976c8b7f213fec1c18f3c",
+  measurementId: "G-LXZWC8MVP0"
 };
 
 // Set true while developing against the local emulator suite (firebase emulators:start).
