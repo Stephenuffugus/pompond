@@ -902,8 +902,9 @@
 
     const kr=app.querySelector("#kidRows");
     kids().forEach(k=>{const row=document.createElement("div");row.className="row";row.style.setProperty("--kc",k.color);
-      row.innerHTML=`<span class="emo">${k.emoji}</span><div class="grow"><div class="rn">${esc(k.name)}</div><div class="rs">${pomIcon(13)} ${k.palms||0} · ${crittersOf(k.id).length} critters</div></div>
+      row.innerHTML=`<span class="emo">${k.emoji}</span><div class="grow" style="cursor:pointer"><div class="rn">${esc(k.name)}</div><div class="rs">${pomIcon(13)} ${k.palms||0} · ${crittersOf(k.id).length} critters</div></div>
         <button class="mini">+ ${esc(cname())}</button><button class="mini ghost">Edit</button>`;
+      row.querySelector(".grow").onclick=()=>kidSheet(k);
       row.querySelector(".mini:not(.ghost)").onclick=()=>kindnessSheet(k);
       row.querySelector(".ghost").onclick=()=>kidSheet(k);
       kr.appendChild(row);});
@@ -911,16 +912,18 @@
     const cr=app.querySelector("#choreRows");
     fam.chores.forEach(c=>{const row=document.createElement("div");row.className="row";
       const who=c.assignedTo?member(c.assignedTo):null;
-      row.innerHTML=`<span class="emo">${c.emoji}</span><div class="grow"><div class="rn">${esc(c.name)}</div><div class="rs">⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}</div></div>
+      row.innerHTML=`<span class="emo">${c.emoji}</span><div class="grow" style="cursor:pointer"><div class="rn">${esc(c.name)}</div><div class="rs">⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}</div></div>
         <button class="mini ghost">Edit</button><button class="mini" style="background:#E5524B">✕</button>`;
+      row.querySelector(".grow").onclick=()=>choreSheet(c);
       row.querySelector(".ghost").onclick=()=>choreSheet(c);
       row.querySelector(".mini:not(.ghost)").onclick=()=>{fam.chores=fam.chores.filter(x=>x.id!==c.id);save();render();};
       cr.appendChild(row);});
 
     const rr=app.querySelector("#rewardRows");
     fam.rewards.forEach(r=>{const row=document.createElement("div");row.className="row";
-      row.innerHTML=`<span class="emo">${r.emoji}</span><div class="grow"><div class="rn">${esc(r.name)}</div><div class="rs"><span class="tier-tag t-${r.tier}">${r.tier}</span></div></div>
+      row.innerHTML=`<span class="emo">${r.emoji}</span><div class="grow" style="cursor:pointer"><div class="rn">${esc(r.name)}</div><div class="rs"><span class="tier-tag t-${r.tier}">${r.tier}</span></div></div>
         <button class="mini ghost">Edit</button><button class="mini" style="background:#E5524B">✕</button>`;
+      row.querySelector(".grow").onclick=()=>rewardSheet(r);
       row.querySelector(".ghost").onclick=()=>rewardSheet(r);
       row.querySelector(".mini:not(.ghost)").onclick=()=>{fam.rewards=fam.rewards.filter(x=>x.id!==r.id);save();render();};
       rr.appendChild(row);});
