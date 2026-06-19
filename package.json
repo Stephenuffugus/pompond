@@ -1,0 +1,26 @@
+{
+  "name": "pom-pond",
+  "version": "1.0.0",
+  "description": "Pom Pond — family chore + kindness reward PWA (Firebase auth, cloud sync, server-authoritative economy).",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node test/pom-pond.test.mjs ./public/index.html && node test/economy.test.mjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-pom-pond \"node test/rules.test.mjs\"",
+    "test:all": "npm test && npm run test:rules",
+    "dev": "firebase emulators:start",
+    "serve": "firebase serve --only hosting",
+    "deploy": "node build.mjs && firebase deploy",
+    "deploy:hosting": "node build.mjs && firebase deploy --only hosting",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:functions": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "jsdom": "^29.1.1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.15.0",
+    "firebase-tools": "^15.22.0"
+  }
+}

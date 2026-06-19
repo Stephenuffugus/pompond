@@ -1,0 +1,107 @@
+rules_version = '2';
+// ============================================================================
+// Pom Pond — Firestore security rules
+//
+// THREAT MODEL: a child must NEVER be able to credit themselves Poms, critters,
+// buckets, streaks, or rewards — and must never see another family's data.
+//
+// DESIGN: the economy is server-authoritative. Every economy mutation runs in a
+// Cloud Function with the Admin SDK, which BYPASSES these rules. So the rules
+// only need to govern CLIENT writes, and for the economy the answer is simply:
+// clients (kids AND parents) cannot write economy state at all. Parents may
+// write CONFIG (chores, rewards, settings, member profile, join codes); kids
+// have read-only access to their own family and nothing more.
+//
+// Identity comes from CUSTOM CLAIMS minted by the Cloud Functions:
+//   parent: { familyId, role: 'parent' }
+//   child:  { familyId, memberId, role: 'child' }
+//
+// The accompanying rules tests (test/rules.test.mjs) PROVE the integrity
+// properties below against the emulator.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ----
+    function signedIn() { return request.auth != null; }
+    function claim(k)  { return signedIn() ? request.auth.token[k] : null; }
+    function inFamily(fid) { return signedIn() && claim('familyId') == fid; }
+    function isParent(fid) { return inFamily(fid) && claim('role') == 'parent'; }
+    function isChild(fid)  { return inFamily(fid) && claim('role') == 'child'; }
+
+    // keys that are ECONOMY state on a member doc — never client-writable.
+    function memberEconomyKeys() {
+      return ['palms','buckets','choices','streak','lastActive','childAuthId'];
+    }
+    // a member update is "config only" if it touches none of the economy keys.
+    function memberConfigOnly() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(memberEconomyKeys());
+    }
+
+    match /families/{fid} {
+      // Read: any signed-in member of this family (parent or child).
+      allow read: if inFamily(fid);
+
+      // Create/delete the family doc only via the createFamily Cloud Function
+      // (Admin SDK). parentUids and the identity surface are function-owned.
+      allow create, delete: if false;
+
+      // Parents may edit family config (name, settings, currency) but cannot
+      // tamper with the parent roster — that is claim/function controlled.
+      allow update: if isParent(fid)
+        && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['parentUids','createdAt']);
+
+      // ---- members ----
+      match /members/{memberId} {
+        allow read: if inFamily(fid);
+        // Parent can add a kid, but not pre-load economy on creation.
+        allow create: if isParent(fid)
+          && !request.resource.data.keys().hasAny(memberEconomyKeys()
+               .removeAll(['buckets','choices','streak','lastActive']))
+          && (!('palms' in request.resource.data) || request.resource.data.palms == 0);
+        // Parent can edit profile fields only (name/emoji/color/role/assignment).
+        // Economy fields are written exclusively by Cloud Functions (admin).
+        allow update: if isParent(fid) && memberConfigOnly();
+        allow delete: if isParent(fid);
+      }
+
+      // ---- config collections: parents write, family reads ----
+      match /chores/{choreId} {
+        allow read: if inFamily(fid);
+        allow write: if isParent(fid);
+      }
+      match /rewards/{rewardId} {
+        allow read: if inFamily(fid);
+        allow write: if isParent(fid);
+      }
+
+      // ---- economy collections: READ-only to the family, writes are
+      //      ADMIN-ONLY (Cloud Functions). No client may write. ----
+      match /critters/{critterId}   { allow read: if inFamily(fid); allow write: if false; }
+      match /inventory/{itemId}     { allow read: if inFamily(fid); allow write: if false; }
+      match /ledger/{eventId}       { allow read: if inFamily(fid); allow write: if false; }
+      match /done/{doneKey}         { allow read: if inFamily(fid); allow write: if false; }
+      match /pending/{pendId}       { allow read: if inFamily(fid); allow write: if false; }
+
+      // ---- private auth doc: join code + per-kid codes. Parents only;
+      //      children can NEVER read it (so they can't steal a sibling's code).
+      //      The bindDevice function reads it via the Admin SDK. ----
+      match /private/{doc} {
+        allow read, write: if isParent(fid);
+      }
+    }
+
+    // Top-level device binding map (uid -> {familyId, memberId}), written by the
+    // bindDevice function only; a device may read its own binding.
+    match /deviceBindings/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Default deny everything else.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

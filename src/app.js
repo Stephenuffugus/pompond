@@ -1,0 +1,640 @@
+/* ============================================================
+   APP — state, router, views, sheets, FX.
+   Ported from the prototype. Economy math lives in Economy.* (shared
+   with the server); CritterEngine + store are separate modules.
+   In LOCAL mode every path below behaves exactly like the prototype
+   (the jsdom harness is the contract). In CLOUD mode (js/cloud.js
+   active) the economy-affecting actions route to Cloud Functions and
+   live state arrives via onSnapshot -> PP.applySnapshot().
+   ============================================================ */
+  const PP = (window.PomPond = window.PomPond || {});
+  const cloudActive = () => Backend.cloudActive();
+
+  const ARCHETYPES = CritterEngine.list;
+  const renderCritter = (seed,archetype,rarity)=>CritterEngine.render(seed,archetype,rarity);
+
+  /* ---------- state ---------- */
+  function id(){return Math.random().toString(36).slice(2,9);}
+  const C_EMOJI=["🧹","🧺","🍽️","🛏️","🗑️","🪥","🐕","🌱","📚","🧼","🚿","🧦","🧽","🍳","🪣","👕","🪟","🦷","✏️","🎒"];
+  const R_EMOJI=["🍿","🎮","🍕","🎬","🍦","🛝","📺","🧸","💵","🎨","🎟️","🧁","⚽","🚲","🏊","🐶"];
+  const KID_EMOJI=["🦊","🐼","🐯","🦁","🐸","🐵","🐶","🐱","🦄","🐧","🐢","🦖","🐙","🦋","🐝","🦉","🐰","🐨"];
+  const COLORS=["#FF8A5B","#5BB1FF","#5BB98C","#C98BFF","#FFC24B","#FF6FA5","#4EC6C6","#9FCB55"];
+
+  function defaultFamily(){
+    return {
+      setup:false,
+      name:"Our Family",
+      settings:{smallCap:4, medCap:3, bigCap:2, approval:false, parentPin:"0000"},
+      members:[ {id:"p1", name:"Parent", role:"parent", emoji:"🧑‍🍳", color:"#3FA7A1"} ],
+      chores:[
+        {id:id(), name:"Tidy Room", emoji:"🛏️", secs:600, palm:1},
+        {id:id(), name:"Dishes", emoji:"🍽️", secs:300, palm:1},
+        {id:id(), name:"Brush Teeth", emoji:"🪥", secs:120, palm:1},
+        {id:id(), name:"Feed Pet", emoji:"🐕", secs:180, palm:1}
+      ],
+      rewards:[
+        {id:id(), name:"15 min screen time", emoji:"📺", tier:"small"},
+        {id:id(), name:"Pick dinner", emoji:"🍕", tier:"medium"},
+        {id:id(), name:"Movie night", emoji:"🎬", tier:"big"}
+      ],
+      critters:[], inventory:[], pending:[], log:[], done:{}
+    };
+  }
+
+  // normalize older / cloud-sourced state into the runtime shape
+  function normalizeFam(f){
+    f.settings=f.settings||{}; f.members=f.members||[]; f.chores=f.chores||[];
+    f.rewards=f.rewards||[]; f.critters=f.critters||[]; f.inventory=f.inventory||[];
+    f.log=f.log||[]; f.done=f.done||{}; f.pending=f.pending||[];
+    if(f.setup===undefined) f.setup = f.members.some(m=>m.role==="child");
+    f.members.forEach(m=>{ if(m.role==="child"){ m.buckets=m.buckets||{s:0,m:0,b:0}; m.choices=m.choices||0; m.streak=m.streak||0; if(m.lastActive===undefined)m.lastActive=null; } });
+    return f;
+  }
+
+  let fam = normalizeFam( Backend.loadLocal() || defaultFamily() );
+  function save(){
+    if(cloudActive() && Backend.cloud.saveCrud){ try{ Backend.cloud.saveCrud(fam); }catch(e){} }
+    Backend.saveLocal(fam);
+  }
+
+  let view=fam.setup?"lobby":"setup", meId=null;
+  const timer={choreId:null,kidId:null,remaining:0,total:0,running:false,int:null};
+
+  const members=()=>fam.members;
+  const kids=()=>fam.members.filter(m=>m.role==="child");
+  const member=mid=>fam.members.find(m=>m.id===mid);
+  const me=()=>member(meId);
+  const choresFor=kid=>fam.chores.filter(c=>!c.assignedTo||c.assignedTo===kid.id);
+  const rewardsTier=t=>fam.rewards.filter(r=>r.tier===t);
+  const crittersOf=mid=>fam.critters.filter(c=>c.ownerId===mid);
+  const invOf=mid=>fam.inventory.filter(i=>i.ownerId===mid);
+  function fmt(s){s=Math.max(0,Math.round(s));return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+  /* ---------- currency: Poms (renameable per family) ---------- */
+  const cname=()=>fam.settings.currencyName||"Pom";
+  const cnames=()=>{const n=cname();return /s$/i.test(n)?n:n+"s";};
+  function pomIcon(sz){sz=sz||16;
+    let dots="";for(let i=0;i<10;i++){const a=i/10*Math.PI*2;
+      dots+=`<circle cx="${(50+30*Math.cos(a)).toFixed(1)}" cy="${(50+30*Math.sin(a)).toFixed(1)}" r="16" fill="hsl(${(i*36+10)%360},78%,66%)"/>`;}
+    return `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}" style="vertical-align:-${Math.round(sz*0.15)}px">${dots}<circle cx="50" cy="50" r="26" fill="hsl(45,90%,70%)"/><circle cx="43" cy="44" r="7" fill="hsl(45,95%,85%)"/></svg>`;}
+
+  /* ============================================================
+     ECONOMY WRAPPERS — local path is verbatim prototype behavior;
+     cloud path routes to server-authoritative Cloud Functions.
+     ============================================================ */
+  let revealQ=[];
+  const today=()=>Economy.today();
+  const isDoneToday=(kid,chore)=>Economy.isDoneToday(fam,kid,chore);
+
+  function completeChore(kid,chore){
+    if(cloudActive()){ Backend.cloud.completeChore(kid.id,chore.id).catch(e=>toast("Couldn't reach server — try again")); return; }
+    const r=Economy.completeChore(fam,kid,chore,revealQ);
+    if(r.status==='already'){ toast("Already done today ✅"); render(); return; }
+    save();
+    if(r.status==='pending'){ render(); toast("Sent to a parent for approval ✅"); return; }
+    playReveals(kid.id);
+  }
+  function approve(p){
+    if(cloudActive()){ Backend.cloud.approve(p.id).catch(()=>toast("Couldn't reach server")); return; }
+    const kid=member(p.ownerId); if(kid){ Economy.earn(fam,kid,{type:"chore"},revealQ); }
+    revealQ=[];                                  // reveals are for the kid's device, not the parent's
+    fam.pending=fam.pending.filter(x=>x.id!==p.id); save(); render();
+  }
+  function givePom(kid,src,note){
+    if(cloudActive()){ Backend.cloud.givePom(kid.id,src,note).catch(()=>toast("Couldn't reach server")); return; }
+    Economy.earn(fam,kid,{type:src,special:true,note:note,byUid:"local-parent"},revealQ); revealQ=[]; save();
+  }
+  function resolveChoice(kid,saveUp){
+    if(cloudActive()){ Backend.cloud.resolveChoice(kid.id,saveUp).catch(()=>toast("Couldn't reach server")); return; }
+    Economy.resolveChoice(fam,kid,saveUp,revealQ); save();
+    playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); });
+  }
+
+  /* play earned-critter reveals (only on the earning kid's own screen) */
+  function playReveals(kidId,done){
+    const q=revealQ; revealQ=[];
+    render();
+    if(meId!==kidId||view!=="kid"||!q.length){ if(done)done(); return; }
+    let i=0;
+    const next=()=>{ if(i>=q.length){ render(); if(done)done(); return; } showReveal(q[i],()=>{ i++; next(); }); };
+    setTimeout(next,160);
+  }
+  function showReveal(c,cb){
+    const ov=document.getElementById("reveal");
+    const label=c.special?(c.tag==="school"?"🏫 School "+esc(cname())+"!":"✨ Kindness Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
+    ov.innerHTML=`<div class="reveal-card"><div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity)}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
+    ov.classList.add("show"); confetti(); beep(c.rarity>=2||c.special);
+    let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
+    ov.onclick=close; setTimeout(close,c.rarity>=2?2400:1500);
+  }
+
+  /* ============================================================
+     ROUTER
+     ============================================================ */
+  const app=document.getElementById("app");
+  function render(){
+    if(view==="setup")return renderSetup();
+    if(view==="lobby")return renderLobby();
+    if(view==="parent")return renderParent();
+    if(view==="kid")return renderKid();
+  }
+
+  /* ============================================================
+     FIRST-RUN SETUP WIZARD
+     ============================================================ */
+  function renderSetup(){
+    document.body.classList.remove("editing");
+    const kidList=kids().map(k=>`
+      <div class="row" style="--kc:${k.color}"><span class="emo">${k.emoji}</span>
+        <div class="grow"><div class="rn">${esc(k.name)}</div></div>
+        <button class="mini ghost" data-edit="${k.id}">Edit</button></div>`).join("");
+    app.innerHTML=`
+      <div class="setup-hero">
+        <div class="setup-art">${["frog","duck","turtle"].map((a,i)=>`<div class="sa-c" style="animation-delay:${i*.5}s">${renderCritter("welcome:"+a,a,1)}</div>`).join("")}</div>
+        <h1>Welcome to<br>Pom Pond! 🐸</h1>
+        <p>Kids do chores &amp; kind things, earn <b>Poms</b> ${pomIcon(18)}, hatch critters into their own pond, and fill buckets to unlock <b>rewards you choose</b>.</p>
+      </div>
+      <div class="setup-card">
+        <div class="field"><label>Your family name</label><input id="sfn" maxlength="20" value="${esc(fam.name)}" placeholder="The Smiths"></div>
+        <div class="field"><label>Parent PIN <span style="text-transform:none;font-weight:700">(keeps kids out of the parent screen)</span></label>
+          <input id="spn" inputmode="numeric" maxlength="4" value="${esc(fam.settings.parentPin)}" placeholder="4 digits"></div>
+        <div class="field"><label>Your kids</label>
+          <div class="rows" id="skids">${kidList||'<div class="hint" style="margin:4px 0">No kids yet — add your first!</div>'}</div>
+          <button class="iconbtn go" id="saddkid" style="width:100%;margin-top:10px;justify-content:center">+ Add a kid</button></div>
+        <button class="btn-big" id="sgo" ${kids().length?"":"disabled"}>Let's go! 🎉</button>
+        <div class="hint" style="margin-top:12px">Starter chores &amp; rewards are loaded — you can change everything later in the Parent screen.</div>
+      </div>`;
+    const stash=()=>{ fam.name=app.querySelector("#sfn").value.trim()||fam.name; fam.settings.parentPin=app.querySelector("#spn").value||fam.settings.parentPin; };
+    app.querySelector("#saddkid").onclick=()=>{stash();kidSheet(null);};
+    app.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{stash();kidSheet(member(b.dataset.edit));});
+    app.querySelector("#sgo").onclick=()=>{
+      fam.name=app.querySelector("#sfn").value.trim()||"Our Family";
+      const pin=app.querySelector("#spn").value.replace(/\D/g,"");
+      fam.settings.parentPin=(pin||"0000").padStart(4,"0").slice(0,4);
+      fam.setup=true; save(); view="lobby"; render(); confetti(); beep(true);
+      if(cloudActive() && Backend.cloud.onSetupComplete) Backend.cloud.onSetupComplete(fam);
+    };
+  }
+
+  function renderLobby(){
+    document.body.classList.remove("editing");
+    app.innerHTML=`
+      <div class="topbar"><div class="brand">🐸 <h1>Pom Pond</h1></div>
+        <span>${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
+      <div class="label"><span>Who's here?</span><span class="ln"></span></div>
+      <div class="lobby-grid" id="lg"></div>
+      <div class="hint">Parents manage chores & rewards · kids do chores and grow their Pond</div>`;
+    app.querySelector("#gallery").onclick=galleryModal;
+    const acct=app.querySelector("#acct"); if(acct&&Backend.cloud.accountSheet) acct.onclick=()=>Backend.cloud.accountSheet();
+    const lg=app.querySelector("#lg");
+    fam.members.forEach(m=>{
+      const b=document.createElement("button"); b.className="lobby-card"; b.style.setProperty("--kc",m.color);
+      b.innerHTML=`<span class="disc">${m.emoji}</span><span class="nm">${esc(m.name)}</span><span class="rl">${m.role==="parent"?"Parent":"Kid"}</span>`;
+      b.onclick=()=>enter(m);
+      lg.appendChild(b);
+    });
+  }
+  function enter(m){
+    // In cloud mode, a kid device bound to one member can only enter as that member.
+    if(cloudActive() && Backend.cloud.boundMemberId){
+      const bound=Backend.cloud.boundMemberId();
+      if(bound && m.id!==bound && m.role==="child"){ toast("This device belongs to another kid"); return; }
+    }
+    if(m.role==="parent"){
+      // Cloud: a kid principal can never pass into parent mode even with the PIN.
+      if(cloudActive() && Backend.cloud.isParent && !Backend.cloud.isParent()){ toast("Ask a parent to sign in on their device"); return; }
+      askPin(ok=>{ if(ok){meId=m.id;view="parent";render();} });
+    }else{ meId=m.id; view="kid"; render(); }
+  }
+  function askPin(cb){
+    openSheet(`<h3>Parent PIN</h3>
+      <div class="field"><label>Enter PIN</label><input id="pin" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save">Enter</button></div>`,sheet=>{
+      sheet.querySelector(".cancel").onclick=closeSheet;
+      sheet.querySelector(".save").onclick=()=>{const v=sheet.querySelector("#pin").value;closeSheet();cb(v===fam.settings.parentPin);};
+      setTimeout(()=>{const el=sheet.querySelector("#pin");if(el)el.focus();},60);
+    });
+  }
+
+  /* ============================================================
+     KID VIEW
+     ============================================================ */
+  function renderKid(){
+    document.body.classList.remove("editing");
+    const kid=me(); const cap=fam.settings;
+    const ready=invOf(kid.id).filter(i=>i.status==="ready");
+    app.innerHTML=`
+      <div class="topbar"><div class="brand">🐸 <h1>${esc(fam.name)}</h1></div>
+        <span><button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
+      <div class="me" style="--kc:${kid.color}">
+        <div class="disc">${kid.emoji}</div>
+        <div class="info"><h2>${esc(kid.name)}'s Pond</h2>
+          <div class="palms">${pomIcon(15)} <b>${kid.palms||0}</b> ${cnames()} · ${crittersOf(kid.id).length} critters${kid.streak?` · 🔥 ${kid.streak}-day streak`:""}</div></div>
+      </div>
+      <div class="buckets">
+        ${bucketHTML("s","Small",kid.buckets.s,cap.smallCap)}
+        ${bucketHTML("m","Medium",kid.buckets.m,cap.medCap)}
+        ${bucketHTML("b","Big",kid.buckets.b,cap.bigCap)}
+      </div>
+      ${ready.length?`<div class="label"><span>Rewards to spend 🎉</span><span class="ln"></span></div><div class="tokens" id="tok"></div>`:""}
+      <div class="label"><span>My Pond</span><span class="ln"></span></div>
+      <div class="pond" id="pond"></div>
+      <div class="label"><span>Do a chore</span><span class="ln"></span></div>
+      <div class="chore-list" id="cl"></div>
+      <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Fill buckets for rewards!</div>`;
+    app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
+    app.querySelector("#dex").onclick=()=>dexModal(kid);
+
+    if(ready.length){
+      const tok=app.querySelector("#tok");
+      ready.forEach(i=>{const t=document.createElement("div");t.className="token";
+        t.innerHTML=`<span class="pill">${i.tier}</span> Tap to redeem`;
+        t.onclick=()=>redeemFlow(kid,i); tok.appendChild(t);});
+    }
+    paintPond(kid);
+    const cl=app.querySelector("#cl");
+    choresFor(kid).forEach(c=>{const done=isDoneToday(kid,c);
+      const d=document.createElement("button");d.className="chore"+(done?" done":"");
+      d.innerHTML=`${done?'<span class="check">✓</span>':""}<span class="emo">${c.emoji}</span><span class="cn">${esc(c.name)}</span><span class="meta">${done?"Done today!":"⏱ "+fmt(c.secs)+" · "+pomIcon(13)+" "+c.palm}</span>`;
+      d.onclick=()=>{ if(done){toast("Already done today ✅");return;} openTimer(kid,c); };
+      cl.appendChild(d);});
+
+    if((kid.choices||0)>0) setTimeout(()=>choiceModal(kid),350);
+  }
+  function bucketHTML(k,name,val,cap){
+    const pct=Math.min(100,(val/cap)*100);
+    const ic=k==="s"?"🪣":k==="m"?"🛢️":"🏆";
+    return `<div class="bucket ${k}"><div class="bt">${name}</div><div class="bn">${ic}</div>
+      <div class="frac">${val}/${cap}</div><div class="pbar"><i style="width:${pct}%"></i></div></div>`;
+  }
+  function paintPond(kid){
+    const pond=app.querySelector("#pond"); const list=crittersOf(kid.id).slice(-28);
+    pond.innerHTML=`<div class="pondcount">${crittersOf(kid.id).length} 🪷</div>`;
+    ["🪷","🪷","🍃"].forEach((e,i)=>{const l=document.createElement("div");l.className="lily";l.textContent=e;
+      l.style.left=(15+i*32)+"%";l.style.top=(20+((i*37)%55))+"%";pond.appendChild(l);});
+    if(!list.length){pond.innerHTML+=`<div class="empty">Your pond is empty.<br>Do a chore to hatch your first critter! 🐣</div>`;return;}
+    list.forEach((c,i)=>{const w=document.createElement("div");w.className="critter";
+      w.style.left=(6+ (i*29)%82)+"%"; w.style.top=(18+(i*43)%62)+"%";
+      w.style.animationDelay=(i%6)*0.4+"s"; w.style.cursor="pointer";
+      w.style.transform=`scale(${1+c.rarity*0.12})`;
+      w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity);
+      w.onclick=()=>inspectCritter(c); pond.appendChild(w);});
+  }
+  function inspectCritter(c){
+    openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}</h3>
+      <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity)}</div>
+      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 14px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="school"?" · 🏫 School "+esc(cname()):" · ✨ Kindness critter"):""}</p>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
+  }
+  function galleryModal(){
+    let salt=Math.random();
+    const draw=()=>CritterEngine.list.map(k=>`<div style="text-align:center"><div style="width:62px;height:62px;margin:0 auto">${renderCritter(k+":"+salt,k,1)}</div><div style="font-size:11px;font-weight:800;color:var(--soft)">${CritterEngine.name(k)}</div></div>`).join("");
+    openSheet(`<h3>Critter Gallery <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${CritterEngine.list.length} species</span></h3>
+      <p style="font-weight:700;color:var(--soft);margin-top:-8px;font-size:13px">Every drop also varies color, pattern, eyes &amp; accessories — reroll to see.</p>
+      <div id="gg" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${draw()}</div>
+      <div class="sa"><button class="cancel">Close</button><button class="save" id="rr">🎲 Reroll</button></div>`,s=>{
+      s.querySelector(".cancel").onclick=closeSheet;
+      s.querySelector("#rr").onclick=()=>{salt=Math.random();s.querySelector("#gg").innerHTML=draw();};
+    });
+  }
+  function dexModal(kid){
+    const mine=crittersOf(kid.id);
+    const found=CritterEngine.list.filter(k=>mine.some(c=>c.archetype===k)).length;
+    const cells=CritterEngine.list.map(k=>{
+      const owned=mine.filter(c=>c.archetype===k);
+      if(!owned.length)return `<div style="text-align:center;opacity:.45"><div style="width:62px;height:62px;margin:0 auto;filter:grayscale(1) contrast(.4) brightness(1.1)">${renderCritter("mystery:"+k,k,0)}</div><div style="font-size:11px;font-weight:800;color:var(--soft)">???</div></div>`;
+      const best=owned.reduce((a,b)=>b.rarity>a.rarity?b:a);
+      return `<div style="text-align:center"><div style="width:62px;height:62px;margin:0 auto">${renderCritter(best.seed,best.archetype,best.rarity)}</div><div style="font-size:11px;font-weight:800;color:var(--ink)">${CritterEngine.name(k)} ×${owned.length}</div></div>`;
+    }).join("");
+    openSheet(`<h3>${esc(kid.name)}'s Collection <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${found}/${CritterEngine.list.length} species</span></h3>
+      <div class="pbar" style="margin:-4px 0 14px"><i style="width:${Math.round(found/CritterEngine.list.length*100)}%"></i></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${cells}</div>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
+  }
+  function choiceModal(kid){
+    openSheet(`<div class="choice"><h3>Bucket full! 🛢️ Your choice…</h3>
+      <button class="opt" data-c="save"><b>Save toward the BIG reward 🏆</b><span>Pour it up. Skip a medium win now for the big prize later.</span></button>
+      <button class="opt" data-c="keep"><b>Keep my medium win ✅</b><span>Enjoy it now. The big bucket waits.</span></button></div>`,sheet=>{
+      sheet.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{closeSheet();resolveChoice(kid,o.dataset.c==="save");});
+    });
+  }
+  function redeemFlow(kid,item){
+    const list=rewardsTier(item.tier);
+    const opts=list.length?list.map(r=>`<button class="opt" data-r="${r.id}"><b>${r.emoji} ${esc(r.name)}</b><span>${item.tier} reward</span></button>`).join(""):
+      `<p style="font-weight:700;color:var(--soft)">No ${item.tier} rewards set yet — ask a parent to add some.</p>`;
+    openSheet(`<div class="choice"><h3>Spend your ${item.tier} reward</h3>${opts}<div class="sa"><button class="cancel">Later</button></div></div>`,sheet=>{
+      sheet.querySelector(".cancel").onclick=closeSheet;
+      sheet.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
+        if(cloudActive()){ Backend.cloud.redeem(item.id,o.dataset.r).catch(()=>toast("Couldn't reach server")); closeSheet(); confetti(); return; }
+        item.status="redeemed";item.rewardId=o.dataset.r;const rw=fam.rewards.find(r=>r.id===o.dataset.r);Economy.logEvent(fam,kid,"redeem",rw?rw.name:"");save();closeSheet();confetti();render();});
+    });
+  }
+
+  /* ============================================================
+     TIMER OVERLAY
+     ============================================================ */
+  const overlay=document.getElementById("overlay"), timerCard=document.getElementById("timerCard");
+  const RING=2*Math.PI*92;
+  function openTimer(kid,chore){
+    timer.kidId=kid.id;timer.choreId=chore.id;timer.total=timer.remaining=chore.secs;timer.running=false;
+    timerCard.innerHTML=`
+      <h3>${chore.emoji} ${esc(chore.name)}</h3>
+      <div class="ring-wrap"><svg class="ring" width="200" height="200" viewBox="0 0 200 200">
+        <circle class="ring-bg" cx="100" cy="100" r="92"></circle>
+        <circle class="ring-fg" id="rf" cx="100" cy="100" r="92" stroke-dasharray="${RING}"></circle></svg>
+        <div class="clock"><div class="time" id="tt">${fmt(timer.remaining)}</div><div class="face" id="ff">⏰</div></div></div>
+      <div class="adjust"><button data-a="-60">−1m</button><button data-a="-10">−10s</button><button data-a="10">+10s</button><button data-a="60">+1m</button></div>
+      <div class="timer-actions"><button class="ta-x" id="tx">Close</button><button class="ta-go" id="tg">Start</button><button class="ta-done" id="td">Done! ${pomIcon(17)}</button></div>`;
+    overlay.classList.add("show"); paintTimer();
+    timerCard.querySelector("#tx").onclick=()=>{stopT();overlay.classList.remove("show");};
+    timerCard.querySelector("#tg").onclick=()=>{timer.running?stopT():startT();paintTimer();};
+    timerCard.querySelector("#td").onclick=()=>{stopT();overlay.classList.remove("show");completeChore(kid,chore);};
+    timerCard.querySelectorAll(".adjust button").forEach(b=>b.onclick=()=>{
+      timer.remaining=Math.max(0,timer.remaining+parseInt(b.dataset.a,10));
+      if(timer.remaining>timer.total)timer.total=timer.remaining;paintTimer();});
+  }
+  function paintTimer(){
+    const tt=timerCard.querySelector("#tt"),rf=timerCard.querySelector("#rf"),ff=timerCard.querySelector("#ff"),tg=timerCard.querySelector("#tg");
+    if(!tt)return;
+    tt.textContent=fmt(timer.remaining);
+    rf.style.strokeDashoffset=RING*(1-(timer.total?timer.remaining/timer.total:0));
+    ff.textContent=timer.running?"🏃":(timer.remaining===0?"🎉":"⏰");
+    tg.textContent=timer.running?"Pause":(timer.remaining<timer.total&&timer.remaining>0?"Resume":"Start");
+    tg.classList.toggle("run",timer.running);
+  }
+  function startT(){if(timer.remaining<=0){timer.remaining=timer.total;}timer.running=true;timer.int=setInterval(()=>{
+    timer.remaining--;if(timer.remaining<=0){timer.remaining=0;stopT();beep();navigator.vibrate&&navigator.vibrate([180,90,180]);}paintTimer();},1000);}
+  function stopT(){timer.running=false;clearInterval(timer.int);timer.int=null;}
+
+  /* ============================================================
+     PARENT VIEW
+     ============================================================ */
+  function renderParent(){
+    document.body.classList.remove("editing");
+    const deliver=fam.inventory.filter(i=>i.status==="redeemed");
+    app.innerHTML=`
+      <div class="topbar"><div class="brand">🐸 <h1>Parent</h1></div>
+        <span><button class="iconbtn" id="settings">⚙︎</button> <button class="iconbtn" id="leave">⤺</button></span></div>
+      ${fam.pending.length?`<div class="label"><span>Approve ✅</span><span class="ln"></span></div><div class="rows" id="pend"></div>`:""}
+      ${deliver.length?`<div class="label"><span>Rewards to deliver 🎁</span><span class="ln"></span></div><div class="rows" id="deliver"></div>`:""}
+      <div class="label"><span>Kids</span><span class="ln"></span><button class="iconbtn go" id="addKid" style="height:32px;padding:0 12px;font-size:13px">+ Kid</button></div>
+      <div class="rows" id="kidRows"></div>
+      <div class="label"><span>Chores</span><span class="ln"></span><button class="iconbtn go" id="addChore" style="height:32px;padding:0 12px;font-size:13px">+ Chore</button></div>
+      <div class="rows" id="choreRows"></div>
+      <div class="label"><span>Rewards by tier</span><span class="ln"></span><button class="iconbtn go" id="addReward" style="height:32px;padding:0 12px;font-size:13px">+ Reward</button></div>
+      <div class="rows" id="rewardRows"></div>
+      ${fam.log.length?`<div class="label"><span>Recent activity</span><span class="ln"></span></div><div class="actlog" id="actlog"></div>`:""}
+      <div class="hint">Award ${esc(cnames())} for kindness, approve chores, and set the rewards kids unlock.</div>`;
+    app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
+    app.querySelector("#settings").onclick=settingsSheet;
+    app.querySelector("#addKid").onclick=()=>kidSheet(null);
+    app.querySelector("#addChore").onclick=()=>choreSheet(null);
+    app.querySelector("#addReward").onclick=()=>rewardSheet(null);
+
+    if(deliver.length){const de=app.querySelector("#deliver");
+      deliver.forEach(i=>{const kid=member(i.ownerId),rw=fam.rewards.find(r=>r.id===i.rewardId);
+        const row=document.createElement("div");row.className="row";
+        row.innerHTML=`<span class="emo">${rw?rw.emoji:"🎁"}</span><div class="grow"><div class="rn">${rw?esc(rw.name):"Reward"}</div><div class="rs">${kid?esc(kid.name):""} · <span class="tier-tag t-${i.tier}">${i.tier}</span></div></div>
+          <button class="mini">Mark given</button>`;
+        row.querySelector(".mini").onclick=()=>{ if(cloudActive()){ Backend.cloud.markGiven(i.id).catch(()=>toast("Couldn't reach server")); return; } i.status="given";save();render(); };
+        de.appendChild(row);});}
+
+    if(fam.pending.length){const pe=app.querySelector("#pend");
+      fam.pending.forEach(p=>{const kid=member(p.ownerId),ch=fam.chores.find(c=>c.id===p.choreId);
+        const row=document.createElement("div");row.className="row";
+        row.innerHTML=`<span class="emo">${ch?ch.emoji:"❓"}</span><div class="grow"><div class="rn">${ch?esc(ch.name):"Chore"}</div><div class="rs">${kid?esc(kid.name):""}</div></div>
+          <button class="mini ghost">Deny</button><button class="mini">Approve</button>`;
+        row.querySelector(".mini:not(.ghost)").onclick=()=>approve(p);
+        row.querySelector(".ghost").onclick=()=>{ if(cloudActive()){ Backend.cloud.deny(p.id).catch(()=>toast("Couldn't reach server")); return; } fam.pending=fam.pending.filter(x=>x.id!==p.id);save();render(); };
+        pe.appendChild(row);});}
+
+    const kr=app.querySelector("#kidRows");
+    kids().forEach(k=>{const row=document.createElement("div");row.className="row";row.style.setProperty("--kc",k.color);
+      row.innerHTML=`<span class="emo">${k.emoji}</span><div class="grow"><div class="rn">${esc(k.name)}</div><div class="rs">${pomIcon(13)} ${k.palms||0} · ${crittersOf(k.id).length} critters</div></div>
+        <button class="mini">+ ${esc(cname())}</button><button class="mini ghost">Edit</button>`;
+      row.querySelector(".mini:not(.ghost)").onclick=()=>kindnessSheet(k);
+      row.querySelector(".ghost").onclick=()=>kidSheet(k);
+      kr.appendChild(row);});
+
+    const cr=app.querySelector("#choreRows");
+    fam.chores.forEach(c=>{const row=document.createElement("div");row.className="row";
+      const who=c.assignedTo?member(c.assignedTo):null;
+      row.innerHTML=`<span class="emo">${c.emoji}</span><div class="grow"><div class="rn">${esc(c.name)}</div><div class="rs">⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}</div></div>
+        <button class="mini ghost">Edit</button><button class="mini" style="background:#E5524B">✕</button>`;
+      row.querySelector(".ghost").onclick=()=>choreSheet(c);
+      row.querySelector(".mini:not(.ghost)").onclick=()=>{fam.chores=fam.chores.filter(x=>x.id!==c.id);save();render();};
+      cr.appendChild(row);});
+
+    const rr=app.querySelector("#rewardRows");
+    fam.rewards.forEach(r=>{const row=document.createElement("div");row.className="row";
+      row.innerHTML=`<span class="emo">${r.emoji}</span><div class="grow"><div class="rn">${esc(r.name)}</div><div class="rs"><span class="tier-tag t-${r.tier}">${r.tier}</span></div></div>
+        <button class="mini ghost">Edit</button><button class="mini" style="background:#E5524B">✕</button>`;
+      row.querySelector(".ghost").onclick=()=>rewardSheet(r);
+      row.querySelector(".mini:not(.ghost)").onclick=()=>{fam.rewards=fam.rewards.filter(x=>x.id!==r.id);save();render();};
+      rr.appendChild(row);});
+
+    if(fam.log.length){const al=app.querySelector("#actlog");
+      fam.log.slice(0,8).forEach(e=>{const kid=member(e.ownerId);
+        const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":pomIcon(15);
+        const txt=e.type==="kindness"?("Kindness "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="school"?("School "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="redeem"?("Redeemed "+esc(e.note||"a reward")):"Did a chore";
+        const li=document.createElement("div");li.className="actrow";
+        li.innerHTML=`<span>${ic}</span><span class="grow"><b>${kid?esc(kid.name):"?"}</b> · ${txt}</span><span class="ago">${ago(e.at)}</span>`;
+        al.appendChild(li);});}
+  }
+  function ago(ts){const s=Math.floor((Date.now()-ts)/1000);if(s<60)return"now";if(s<3600)return Math.floor(s/60)+"m";if(s<86400)return Math.floor(s/3600)+"h";return Math.floor(s/86400)+"d";}
+
+  function kindnessSheet(kid){
+    let src="kindness";
+    openSheet(`<h3>Give ${esc(kid.name)} a ${esc(cname())} ${pomIcon(17)}</h3>
+      <div class="field"><label>For…</label>
+        <div style="display:flex;gap:8px">
+          <button class="srcbtn on" data-s="kindness" style="flex:1">💛 Kindness<br><span>helpful at home</span></button>
+          <button class="srcbtn" data-s="school" style="flex:1">🏫 School<br><span>earned in class</span></button>
+        </div></div>
+      <div class="field"><label>Note (optional)</label><input id="note" placeholder="Helped without being asked…"></div>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save">Give ${esc(cname())} ${pomIcon(15)}</button></div>`,sheet=>{
+      const note=sheet.querySelector("#note");
+      sheet.querySelectorAll(".srcbtn").forEach(b=>b.onclick=()=>{src=b.dataset.s;
+        sheet.querySelectorAll(".srcbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+        note.placeholder=src==="school"?"Earned 'caught being good' in class…":"Helped without being asked…";});
+      sheet.querySelector(".cancel").onclick=closeSheet;
+      sheet.querySelector(".save").onclick=()=>{const n=note.value.trim();givePom(kid,src,n);closeSheet();confetti();beep(true);render();toast(esc(cname())+" given to "+esc(kid.name)+(src==="school"?" 🏫":" 💛"));};
+    });
+  }
+
+  /* ============================================================
+     SHEETS (editors)
+     ============================================================ */
+  const scrim=document.getElementById("scrim"), sheet=document.getElementById("sheet");
+  function openSheet(html,wire){sheet.innerHTML=html;scrim.classList.add("show");wire&&wire(sheet);}
+  function closeSheet(){scrim.classList.remove("show");}
+  scrim.onclick=e=>{if(e.target===scrim)closeSheet();};
+
+  function kidSheet(kid){
+    const isNew=!kid;
+    const d=kid?{...kid}:{id:id(),name:"",role:"child",emoji:freeEmoji(),color:freeColor(),palms:0,buckets:{s:0,m:0,b:0},choices:0,streak:0,lastActive:null};
+    openSheet(`<h3>${isNew?"Add a kid":"Edit kid"}</h3>
+      <div class="field"><label>Name</label><input id="kn" maxlength="14" value="${esc(d.name)}" placeholder="Name"></div>
+      <div class="field"><label>Character</label><div class="emo-grid" id="ke"></div></div>
+      <div class="field"><label>Color</label><div class="swatch-row" id="kc"></div></div>
+      <div class="sa">${isNew?"":'<button class="cancel" id="del" style="background:#E5524B;color:#fff">Remove</button>'}<button class="cancel">Cancel</button><button class="save">${isNew?"Add":"Save"}</button></div>`,s=>{
+      const eg=s.querySelector("#ke");KID_EMOJI.forEach(em=>{const b=document.createElement("button");b.textContent=em;if(em===d.emoji)b.classList.add("pick");
+        b.onclick=()=>{d.emoji=em;eg.querySelectorAll("button").forEach(x=>x.classList.remove("pick"));b.classList.add("pick");};eg.appendChild(b);});
+      const cg=s.querySelector("#kc");COLORS.forEach(col=>{const sw=document.createElement("div");sw.className="swatch"+(col===d.color?" pick":"");sw.style.background=col;
+        sw.onclick=()=>{d.color=col;cg.querySelectorAll(".swatch").forEach(x=>x.classList.remove("pick"));sw.classList.add("pick");};cg.appendChild(sw);});
+      s.querySelectorAll(".cancel").forEach(b=>{if(b.id!=="del")b.onclick=closeSheet;});
+      const del=s.querySelector("#del");if(del)del.onclick=()=>{fam.members=fam.members.filter(m=>m.id!==kid.id);save();closeSheet();render();};
+      s.querySelector(".save").onclick=()=>{d.name=s.querySelector("#kn").value.trim()||"Kiddo";
+        if(isNew)fam.members.push(d);else Object.assign(kid,d);save();closeSheet();render();};
+      setTimeout(()=>{const el=s.querySelector("#kn");if(el)el.focus();},60);
+    });
+  }
+  function choreSheet(ch){
+    const isNew=!ch;
+    const d=ch?{...ch}:{id:id(),name:"",emoji:C_EMOJI[Math.floor(Math.random()*C_EMOJI.length)],secs:300,palm:1,assignedTo:null};
+    let mins=Math.floor(d.secs/60),secs=d.secs%60;
+    const kidOpts=`<option value="">Anyone</option>`+kids().map(k=>`<option value="${k.id}" ${d.assignedTo===k.id?"selected":""}>${esc(k.name)}</option>`).join("");
+    openSheet(`<h3>${isNew?"New chore":"Edit chore"}</h3>
+      <div class="field"><label>Name</label><input id="cn" maxlength="20" value="${esc(d.name)}" placeholder="Chore name"></div>
+      <div class="field"><label>Icon</label><div class="emo-grid" id="ce"></div></div>
+      <div class="field"><label>Timer</label><div class="minrow">
+        <button class="stepper" id="mm">−</button><input id="cmin" inputmode="numeric" value="${mins}" style="width:60px;text-align:center">
+        <button class="stepper" id="mp">+</button><span style="font-weight:800;color:var(--soft)">min</span>
+        <input id="csec" inputmode="numeric" value="${secs}" style="width:60px;text-align:center"><span style="font-weight:800;color:var(--soft)">sec</span></div></div>
+      <div class="field"><label>Assigned to</label><select id="cas">${kidOpts}</select></div>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save">${isNew?"Add":"Save"}</button></div>`,s=>{
+      const eg=s.querySelector("#ce");C_EMOJI.forEach(em=>{const b=document.createElement("button");b.textContent=em;if(em===d.emoji)b.classList.add("pick");
+        b.onclick=()=>{d.emoji=em;eg.querySelectorAll("button").forEach(x=>x.classList.remove("pick"));b.classList.add("pick");};eg.appendChild(b);});
+      const min=s.querySelector("#cmin");
+      s.querySelector("#mm").onclick=()=>min.value=Math.max(0,(parseInt(min.value,10)||0)-1);
+      s.querySelector("#mp").onclick=()=>min.value=(parseInt(min.value,10)||0)+1;
+      s.querySelector(".cancel").onclick=closeSheet;
+      s.querySelector(".save").onclick=()=>{const m=parseInt(min.value,10)||0,sc=parseInt(s.querySelector("#csec").value,10)||0;
+        d.secs=Math.max(5,m*60+sc);d.name=s.querySelector("#cn").value.trim()||"Chore";d.assignedTo=s.querySelector("#cas").value||null;
+        if(isNew)fam.chores.push(d);else Object.assign(ch,d);save();closeSheet();render();};
+      setTimeout(()=>{const el=s.querySelector("#cn");if(el)el.focus();},60);
+    });
+  }
+  function rewardSheet(rw){
+    const isNew=!rw;
+    const d=rw?{...rw}:{id:id(),name:"",emoji:R_EMOJI[Math.floor(Math.random()*R_EMOJI.length)],tier:"small"};
+    openSheet(`<h3>${isNew?"New reward":"Edit reward"}</h3>
+      <div class="field"><label>Reward</label><input id="rn" maxlength="28" value="${esc(d.name)}" placeholder="e.g. Movie night"></div>
+      <div class="field"><label>Icon</label><div class="emo-grid" id="re"></div></div>
+      <div class="field"><label>Tier</label><select id="rt">
+        <option value="small" ${d.tier==="small"?"selected":""}>Small — frequent, easy to earn</option>
+        <option value="medium" ${d.tier==="medium"?"selected":""}>Medium — a few small fills</option>
+        <option value="big" ${d.tier==="big"?"selected":""}>Big — the goal prize</option></select></div>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save">${isNew?"Add":"Save"}</button></div>`,s=>{
+      const eg=s.querySelector("#re");R_EMOJI.forEach(em=>{const b=document.createElement("button");b.textContent=em;if(em===d.emoji)b.classList.add("pick");
+        b.onclick=()=>{d.emoji=em;eg.querySelectorAll("button").forEach(x=>x.classList.remove("pick"));b.classList.add("pick");};eg.appendChild(b);});
+      s.querySelector(".cancel").onclick=closeSheet;
+      s.querySelector(".save").onclick=()=>{d.name=s.querySelector("#rn").value.trim()||"Reward";d.tier=s.querySelector("#rt").value;
+        if(isNew)fam.rewards.push(d);else Object.assign(rw,d);save();closeSheet();render();};
+      setTimeout(()=>{const el=s.querySelector("#rn");if(el)el.focus();},60);
+    });
+  }
+  function settingsSheet(){
+    const st=fam.settings;
+    openSheet(`<h3>Family settings</h3>
+      <div class="field"><label>Family name</label><input id="fn" value="${esc(fam.name)}"></div>
+      <div class="field"><label>Bucket sizes (drops to fill)</label><div class="minrow">
+        <span style="font-weight:800;color:var(--soft);width:60px">Small</span><input id="cs" inputmode="numeric" value="${st.smallCap}" style="width:56px;text-align:center">
+        <span style="font-weight:800;color:var(--soft);width:60px">Medium</span><input id="cm" inputmode="numeric" value="${st.medCap}" style="width:56px;text-align:center">
+        <span style="font-weight:800;color:var(--soft);width:40px">Big</span><input id="cb" inputmode="numeric" value="${st.bigCap}" style="width:56px;text-align:center"></div></div>
+      <div class="toggle">Require parent approval <div class="sw ${st.approval?"on":""}" id="ap"><i></i></div></div>
+      <div class="field"><label>What are points called? <span style="text-transform:none;font-weight:700">(Pom, Gem, Star…)</span></label><input id="cy" maxlength="12" value="${esc(cname())}"></div>
+      <div class="field"><label>Parent PIN</label><input id="pn" inputmode="numeric" maxlength="4" value="${esc(st.parentPin)}"></div>
+      ${cloudActive()&&Backend.cloud.joinCodeField?Backend.cloud.joinCodeField():""}
+      <div class="field"><label>Backup &amp; restore${cloudActive()?" <span style='text-transform:none;font-weight:700'>(your family is also synced to the cloud)</span>":""}</label>
+        <div style="display:flex;gap:8px">
+          <button id="bkup" class="iconbtn" style="flex:1;justify-content:center;height:42px">⬆ Copy backup</button>
+          <button id="rstr" class="iconbtn" style="flex:1;justify-content:center;height:42px">⬇ Restore</button>
+        </div>
+        <textarea id="bktx" placeholder="Backup code appears here — or paste one to restore" style="width:100%;margin-top:8px;border:2px solid var(--line);border-radius:13px;padding:10px;font-family:var(--body);font-weight:700;font-size:12px;min-height:64px;color:var(--ink);background:#fff;outline:none"></textarea>
+      </div>
+      <button id="reset" style="width:100%;border:none;background:#fff;color:#E5524B;box-shadow:inset 0 0 0 2px #f3c6c3;border-radius:13px;padding:12px;font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;margin-bottom:12px">↺ Reset all progress (keep kids & chores)</button>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save">Save</button></div>`,s=>{
+      let appr=st.approval;const sw=s.querySelector("#ap");sw.onclick=()=>{appr=!appr;sw.classList.toggle("on",appr);};
+      const tx=s.querySelector("#bktx");
+      if(cloudActive()&&Backend.cloud.wireJoinCode) Backend.cloud.wireJoinCode(s);
+      s.querySelector("#bkup").onclick=()=>{
+        try{ tx.value=btoa(unescape(encodeURIComponent(JSON.stringify(fam))));
+          tx.select(); try{document.execCommand("copy");}catch(e){}
+          if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(tx.value).catch(()=>{});
+          toast("Backup code ready — save it somewhere safe 📋");
+        }catch(e){toast("Couldn't create backup");}
+      };
+      s.querySelector("#rstr").onclick=()=>{
+        const code=tx.value.trim(); if(!code){toast("Paste a backup code first");return;}
+        try{ const data=JSON.parse(decodeURIComponent(escape(atob(code))));
+          if(!data||!Array.isArray(data.members))throw 0;
+          fam=normalizeFam(data); if(fam.setup===undefined)fam.setup=true;
+          save();closeSheet();render();toast("Family restored ✅");
+          if(cloudActive()&&Backend.cloud.onRestore)Backend.cloud.onRestore(fam);
+        }catch(e){toast("That code doesn't look right");}
+      };
+      let armed=false; const rb=s.querySelector("#reset");
+      rb.onclick=()=>{
+        if(!armed){armed=true;rb.textContent="Tap again to confirm reset";rb.style.background="#E5524B";rb.style.color="#fff";setTimeout(()=>{armed=false;rb.textContent="↺ Reset all progress (keep kids & chores)";rb.style.background="#fff";rb.style.color="#E5524B";},2600);return;}
+        if(cloudActive()){ Backend.cloud.resetProgress().catch(()=>toast("Couldn't reach server")); closeSheet(); return; }
+        fam.critters=[];fam.inventory=[];fam.pending=[];fam.log=[];fam.done={};
+        fam.members.forEach(m=>{if(m.role==="child"){m.palms=0;m.buckets={s:0,m:0,b:0};m.choices=0;m.streak=0;m.lastActive=null;}});
+        save();closeSheet();render();toast("Progress reset ↺");
+      };
+      s.querySelector(".cancel").onclick=closeSheet;
+      s.querySelector(".save").onclick=()=>{fam.name=s.querySelector("#fn").value.trim()||"Our Family";
+        st.smallCap=Math.max(1,parseInt(s.querySelector("#cs").value,10)||4);
+        st.medCap=Math.max(1,parseInt(s.querySelector("#cm").value,10)||3);
+        st.bigCap=Math.max(1,parseInt(s.querySelector("#cb").value,10)||2);
+        st.approval=appr;st.parentPin=(s.querySelector("#pn").value||"0000").slice(0,4);
+        st.currencyName=(s.querySelector("#cy").value.trim()||"Pom").slice(0,12);
+        save();closeSheet();render();};
+    });
+  }
+  function freeEmoji(){const u=members().map(m=>m.emoji);return KID_EMOJI.find(e=>!u.includes(e))||KID_EMOJI[0];}
+  function freeColor(){const u=members().map(m=>m.color);return COLORS.find(c=>!u.includes(c))||COLORS[0];}
+
+  /* ============================================================
+     FX
+     ============================================================ */
+  function confetti(){const wrap=document.getElementById("burst");const set=["🎉","✨","🐸","🦆","💛","🪷","⭐"];
+    for(let i=0;i<20;i++){const s=document.createElement("span");s.textContent=set[Math.floor(Math.random()*set.length)];
+      s.style.left=Math.random()*100+"vw";s.style.fontSize=(20+Math.random()*22)+"px";s.style.animationDelay=(Math.random()*.4)+"s";
+      wrap.appendChild(s);setTimeout(()=>s.remove(),1900);}}
+  let actx;function beep(happy){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+    (happy?[523,659,784,1047]:[880,660,880]).forEach((f,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.type="triangle";o.frequency.value=f;
+      o.connect(g);g.connect(actx.destination);const t=actx.currentTime+i*.15;g.gain.setValueAtTime(.0001,t);
+      g.gain.exponentialRampToValueAtTime(.22,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.3);o.start(t);o.stop(t+.32);});}catch(e){}}
+  function toast(msg){const t=document.createElement("div");t.textContent=msg;
+    t.style.cssText="position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#23413E;color:#fff;padding:12px 18px;border-radius:14px;font-weight:800;z-index:70;box-shadow:var(--shadow)";
+    document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
+
+  /* ============================================================
+     PUBLIC BRIDGE for js/cloud.js (Firebase enhancement layer)
+     ============================================================ */
+  PP.render=render;
+  PP.toast=toast;
+  PP.getState=()=>fam;
+  PP.localFamily=()=>Backend.loadLocal();
+  PP.normalize=normalizeFam;
+  PP.setCloud=(c)=>{ Backend.cloud=c; };
+  PP.goLobby=()=>{ meId=null; view="lobby"; render(); };
+  PP.openSheet=openSheet; PP.closeSheet=closeSheet;
+  PP.applySnapshot=(f)=>{                       // cloud pushes new family state
+    fam=normalizeFam(f);
+    if(view==="setup" && fam.setup) view="lobby";
+    if((view==="kid"||view==="parent") && !member(meId)) { meId=null; view="lobby"; }
+    render();
+  };
+  PP.applyReveals=(critters)=>{                 // cloud hands us critters to show on this kid's screen
+    if(!critters||!critters.length) return;
+    revealQ=critters.slice();
+    const kid=me();
+    if(kid && view==="kid"){ playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); }); }
+    else revealQ=[];
+  };
+  PP.boot=render;
+
+  render();
