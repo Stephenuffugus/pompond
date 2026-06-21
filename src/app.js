@@ -259,11 +259,12 @@
     document.body.classList.remove("editing");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>Pom Pond</h1></div>
-        <span>${showInstall()?'<button class="iconbtn go" id="install">📲 Get app</button> ':''}${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
+        <span>${showInstall()?'<button class="iconbtn go" id="install">📲 Get app</button> ':''}${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}${kids().length?'<button class="iconbtn" id="wof">🏆 Family</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
       <div class="label"><span>Who's here?</span><span class="ln"></span></div>
       <div class="lobby-grid" id="lg"></div>
       <div class="hint">Parents manage chores & rewards · kids do chores and grow their Pond</div>`;
     app.querySelector("#gallery").onclick=galleryModal;
+    const wof=app.querySelector("#wof"); if(wof)wof.onclick=wallOfFame;
     const ib=app.querySelector("#install"); if(ib)ib.onclick=doInstall;
     const acct=app.querySelector("#acct"); if(acct&&Backend.cloud.accountSheet) acct.onclick=()=>Backend.cloud.accountSheet();
     const lg=app.querySelector("#lg");
@@ -546,14 +547,90 @@
       <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true})}</div>
       <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${shiny?'✨ Shiny · ':''}${(c.tier|0)>0?'🌟 '+esc(Evolution.tierName(c.tier))+' · ':''}${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="combo"?" · ✨ Mixed":CATMAP[c.tag]?" · "+CATMAP[c.tag].emoji+" "+esc(CATMAP[c.tag].name):" · ✨ Bonus"):""}</p>
       <div class="critreason">${reason?`<span class="rlbl">Earned for</span>${reason}`:`An early critter 🐣`}</div>
-      <button class="gbtn" id="keeptoggle" style="margin-top:12px">${kept?"💔 Allow mixing":"❤️ Keep this one safe"}</button>
+      <div class="minrow" style="margin-top:12px;gap:8px">
+        <button class="gbtn" id="keeptoggle" style="flex:1;margin:0">${kept?"💔 Allow mixing":"❤️ Keep safe"}</button>
+        <button class="gbtn" id="bragit" style="flex:1;margin:0">🏅 Brag card</button></div>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{
       s.querySelector(".cancel").onclick=closeSheet;
       s.querySelector("#keeptoggle").onclick=()=>{
         if(critterKeep[c.id])delete critterKeep[c.id]; else critterKeep[c.id]=1;
         saveCritterKeep(); toast(critterKeep[c.id]?"❤️ Kept safe — won't be mixed":"Mixing allowed again"); closeSheet(); render();
       };
+      s.querySelector("#bragit").onclick=()=>bragCard(member(c.ownerId)||me(),c);
     });
+  }
+  /* ===== Phase 4: BRAG CARD — a shareable "certificate of responsibility" with the
+     kid's proudest critter + their stats. Save/Share is grown-up-gated (Parent PIN);
+     no profiles, no accounts — just an image a grown-up sends. ===== */
+  function cardStats(kid){
+    const mine=crittersOf(kid.id);
+    const species=new Set(mine.map(c=>c.archetype)).size;
+    const top=mine.reduce((a,b)=>((b.rarity||0)+(b.tier||0))>((a.rarity||0)+(a.tier||0))?b:a, mine[0]||null);
+    return { mine, species, top };
+  }
+  function cardSVG(kid,c){
+    const st=cardStats(kid), W=520,H=690;
+    const inner=c?renderCritter(c.seed,c.archetype,c.rarity,{bg:true}).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,''):'';
+    const tierTxt=c&&(c.tier||0)>0?Evolution.tierName(c.tier):CritterEngine.rarityName(c?c.rarity:0);
+    const shiny=c&&CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
+    const pills=[ (kid.palms||0)+" "+cnames(), st.mine.length+" critters", st.species+"/"+CritterEngine.list.length+" kinds", (kid.streak||0)+"-day streak" ];
+    const pillSVG=pills.map((p,i)=>{const col=i%2,row=i/2|0,x=W/2-150+col*156,y=476+row*52;
+      return `<rect x="${x}" y="${y}" width="144" height="40" rx="20" fill="#ffffff" opacity=".75"/><text x="${x+72}" y="${y+26}" font-family="sans-serif" font-size="16" font-weight="800" fill="#214a45" text-anchor="middle">${esc(p)}</text>`;}).join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+      <defs><linearGradient id="cbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#eafaf6"/><stop offset="100%" stop-color="#c9ece4"/></linearGradient></defs>
+      <rect width="${W}" height="${H}" rx="28" fill="url(#cbg)"/>
+      <rect x="12" y="12" width="${W-24}" height="${H-24}" rx="22" fill="none" stroke="#3FA7A1" stroke-width="3" opacity=".45"/>
+      <text x="${W/2}" y="56" font-family="sans-serif" font-size="26" font-weight="800" fill="#3FA7A1" text-anchor="middle" letter-spacing="2">POM POND</text>
+      <text x="${W/2}" y="84" font-family="sans-serif" font-size="15" font-weight="700" fill="#5a7d78" text-anchor="middle">Certificate of Responsibility</text>
+      <svg x="${W/2-132}" y="104" width="264" height="264" viewBox="0 0 100 100">${inner}</svg>
+      <text x="${W/2}" y="406" font-family="sans-serif" font-size="34" font-weight="800" fill="#214a45" text-anchor="middle">${esc(kid.name||'Kiddo')}</text>
+      <text x="${W/2}" y="436" font-family="sans-serif" font-size="16" font-weight="700" fill="#5a7d78" text-anchor="middle">${shiny?'Shiny ':''}${esc(CritterEngine.name(c?c.archetype:'frog'))} · ${esc(tierTxt)}</text>
+      ${pillSVG}
+      <text x="${W/2}" y="${H-34}" font-family="sans-serif" font-size="15" font-weight="700" fill="#5a7d78" text-anchor="middle">Earned by doing chores and being kind!</text>
+    </svg>`;
+  }
+  function bragCard(kid,c){
+    if(!c){ const st=cardStats(kid); c=st.top; }
+    const svg=cardSVG(kid,c);
+    openSheet(`<h3 style="text-align:center">🏅 Brag Card</h3>
+      <div class="bragwrap">${svg}</div>
+      <p style="text-align:center;color:var(--soft);font-weight:700;font-size:12px;margin:8px 2px">A grown-up can save or share this to show family how responsible ${esc(kid.name)} has been. 🌟</p>
+      <div class="sa"><button class="cancel">Close</button><button class="save" id="bragshare">Save / Share 🔒</button></div>`,s=>{
+      s.querySelector(".cancel").onclick=closeSheet;
+      s.querySelector("#bragshare").onclick=()=>askPin(ok=>{ if(ok) shareCardSVG(svg,"PomPond-"+((kid.name||"kid").replace(/[^a-z0-9]/gi,"")||"kid")); });
+    });
+  }
+  // Rasterize the card SVG → PNG and share (Web Share with a file) or download.
+  function shareCardSVG(svg,name){
+    try{
+      const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
+      const img=new Image();
+      img.onload=()=>{ const sc=2,cw=520*sc,ch=690*sc;
+        const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+        cv.getContext('2d').drawImage(img,0,0,cw,ch); URL.revokeObjectURL(url);
+        cv.toBlob(b=>{
+          if(!b){ toast("Couldn't make the image"); return; }
+          const file=new File([b],name+'.png',{type:'image/png'});
+          if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+            navigator.share({files:[file],title:'Pom Pond',text:name.replace(/-/g,' ')}).catch(()=>{});
+          }else{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name+'.png'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); toast('Saved! 📥'); }
+        },'image/png');
+      };
+      img.onerror=()=>{ URL.revokeObjectURL(url); toast("Couldn't make the image"); };
+      img.src=url;
+    }catch(e){ toast("Couldn't share that"); }
+  }
+  // Family Wall of Fame — a TEAM celebration (no leaderboard, no ranking).
+  function wallOfFame(){
+    const ks=kids(); const totalPoms=ks.reduce((s,k)=>s+(k.palms||0),0);
+    const tiles=ks.map(k=>{ const st=cardStats(k);
+      const art=st.top?`<div class="wofart">${renderCritter(st.top.seed,st.top.archetype,st.top.rarity)}</div>`:`<div class="wofart" style="font-size:34px">${k.emoji||'🧒'}</div>`;
+      return `<div class="wofcard" style="--kc:${k.color}">${art}<div class="wofname">${esc(k.name)}</div><div class="wofstat">${k.palms||0} ${esc(cnames())} · ${st.species}/${CritterEngine.list.length} kinds${k.streak?` · 🔥${k.streak}`:''}</div></div>`;
+    }).join('');
+    openSheet(`<h3>🏆 Family Wall of Fame</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:14px;margin:-6px 0 12px">Our family has earned <b style="color:var(--accent)">${totalPoms}</b> ${esc(cnames())} together! 🎉 Everyone's growing their own pond.</p>
+      <div class="wofgrid">${tiles||'<div class="hint">Add some kids to start your wall!</div>'}</div>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{ s.querySelector(".cancel").onclick=closeSheet; });
   }
   // Kid taps their Pom count → a plain-language history of what each Pom was for.
   function palmHistory(kid){
