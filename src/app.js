@@ -112,6 +112,7 @@
   // (rules deny it), and a critter's spot is cosmetic, not shared family data.
   let critterPos=(()=>{ try{ return JSON.parse(localStorage.getItem("pp_critterpos")||"{}")||{}; }catch(e){ return {}; } })();
   function saveCritterPos(){ try{ localStorage.setItem("pp_critterpos",JSON.stringify(critterPos)); }catch(e){} }
+  let combineMode=false, combineSel=[];   // 🧬 fusion: select-and-combine state (kid view)
   const today=()=>Economy.today();
   const isDoneToday=(kid,chore)=>Economy.isDoneToday(fam,kid,chore);
 
@@ -138,6 +139,15 @@
     Economy.resolveChoice(fam,kid,saveUp,revealQ); save();
     playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); });
   }
+  // 🧬 fuse 2–3 of the kid's critters into one new one (server-authoritative in
+  // cloud mode; same shared math locally). Consumed parents lose their saved spot.
+  function doCombine(kid,ids){
+    const cleanup=()=>{ ids.forEach(id=>{ delete critterPos[id]; }); saveCritterPos(); };
+    if(cloudActive()){ Backend.cloud.combine(kid.id,ids).then(cleanup).catch(()=>toast("Couldn't reach server — try again")); return; }
+    const r=Economy.combine(fam,kid,ids,revealQ,{byUid:"local"});
+    if(r.reject){ toast(r.reject); return; }
+    cleanup(); save(); playReveals(kid.id);
+  }
 
   /* play earned-critter reveals (only on the earning kid's own screen) */
   function playReveals(kidId,done){
@@ -150,7 +160,7 @@
   }
   function showReveal(c,cb){
     const ov=document.getElementById("reveal");
-    const label=c.special?(c.tag==="school"?"🏫 School "+esc(cname())+"!":"✨ Kindness Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
+    const label=c.special?(c.tag==="school"?"🏫 School "+esc(cname())+"!":c.tag==="combo"?"🧬 New Fusion!":"✨ Kindness Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
     ov.innerHTML=`<div class="reveal-card"><div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity)}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
     ov.classList.add("show"); confetti(); beep(c.rarity>=2||c.special);
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
@@ -305,16 +315,23 @@
         ${bucketHTML("b","Big",kid.buckets.b,cap.bigCap)}
       </div>
       ${ready.length?`<div class="label"><span>Rewards to spend 🎉</span><span class="ln"></span></div><div class="tokens" id="tok"></div>`:""}
-      <div class="label"><span>My Pond</span><span class="ln"></span></div>
+      <div class="label"><span>My Pond</span><span class="ln"></span>${(!combineMode&&crittersOf(kid.id).length>=2)?`<button class="combinebtn" id="combineBtn">🧬 Combine</button>`:""}</div>
+      ${combineMode?`<div class="combinebar"><span id="combinemsg">Tap 2–3 critters to fuse ✨</span><span class="cbtns"><button id="combineCancel">Cancel</button><button id="combineGo" disabled>Fuse</button></span></div>`:""}
       <div class="pond" id="pond"></div>
       <div class="label"><span>Do a chore</span><span class="ln"></span></div>
       <div class="chore-list" id="cl"></div>
       ${adultChores().length?`<div class="label"><span>Grown-ups are doing chores too 💪</span><span class="ln"></span></div><div class="rows" id="adultcl"></div>`:""}
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Drag critters to move them, tap to see what they're for!</div>`;
-    app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
+    app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";combineMode=false;combineSel=[];render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
     const kib=app.querySelector("#install"); if(kib)kib.onclick=doInstall;
+    const cbtn=app.querySelector("#combineBtn"); if(cbtn)cbtn.onclick=()=>{ combineMode=true; combineSel=[]; render(); };
+    if(combineMode){
+      const cc=app.querySelector("#combineCancel"); if(cc)cc.onclick=()=>{ combineMode=false; combineSel=[]; render(); };
+      const cg=app.querySelector("#combineGo"); if(cg)cg.onclick=()=>{ if(combineSel.length<2)return; const ids=combineSel.slice(); combineMode=false; combineSel=[]; render(); doCombine(kid,ids); };
+      updateCombineBar();
+    }
 
     if(ready.length){
       const tok=app.querySelector("#tok");
@@ -376,6 +393,7 @@
       w.style.animationDelay=(i%6)*0.4+"s";
       w.style.transform=`scale(${1+c.rarity*0.12})`;
       w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity);
+      if(combineMode&&combineSel.includes(c.id))w.classList.add("csel");
       makeCritterDraggable(w,c,pond);
       stage.appendChild(w);});
     pond.appendChild(stage);
@@ -392,6 +410,7 @@
   // plain tap still inspects. Position is saved per-device (critterPos).
   function makeCritterDraggable(w,c,pond){
     w.onpointerdown=(e)=>{
+      if(combineMode){ e.stopPropagation(); return; }   // in fuse mode, tap = select (no drag)
       e.stopPropagation();                 // don't let the pond start a pan
       const sx=e.clientX, sy=e.clientY, pr=pond.getBoundingClientRect();
       const startL=parseFloat(w.style.left)||0, startT=parseFloat(w.style.top)||0;
@@ -416,7 +435,23 @@
       window.addEventListener("pointerup",up);
       window.addEventListener("pointercancel",up);
     };
-    w.onclick=()=>{ if(w._dragged){ w._dragged=false; return; } if(pond._ppDragged) return; inspectCritter(c); };
+    w.onclick=()=>{
+      if(combineMode){ toggleCombineSel(c.id,w); return; }
+      if(w._dragged){ w._dragged=false; return; } if(pond._ppDragged) return; inspectCritter(c);
+    };
+  }
+  function toggleCombineSel(id,el){
+    const i=combineSel.indexOf(id);
+    if(i>=0){ combineSel.splice(i,1); el&&el.classList.remove("csel"); }
+    else if(combineSel.length<3){ combineSel.push(id); el&&el.classList.add("csel"); }
+    else { toast("Up to 3 — tap one to deselect"); return; }
+    updateCombineBar();
+  }
+  function updateCombineBar(){
+    const msg=document.getElementById("combinemsg"), go=document.getElementById("combineGo");
+    const n=combineSel.length;
+    if(msg) msg.textContent = n===0?"Tap 2–3 critters to fuse ✨" : n===1?"Pick at least 1 more…" : n+" selected — ready to fuse!";
+    if(go){ go.disabled=n<2; go.textContent = n>=2?("Fuse "+n+" →"):"Fuse"; }
   }
   // Pinch / wheel / button zoom + drag-to-pan. Zoom state lives in module vars so
   // it survives the re-render paintPond does on every state change.
@@ -460,7 +495,7 @@
     const reason=c.reason?esc(c.reason):null;
     openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}</h3>
       <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity)}</div>
-      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="school"?" · 🏫 School "+esc(cname()):" · ✨ Kindness critter"):""}</p>
+      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="school"?" · 🏫 School "+esc(cname()):c.tag==="combo"?" · 🧬 Fusion":" · ✨ Kindness critter"):""}</p>
       <div class="critreason">${reason?`<span class="rlbl">Earned for</span>${reason}`:`An early critter 🐣`}</div>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
   }
@@ -468,12 +503,13 @@
   function palmHistory(kid){
     const mine=fam.log.filter(e=>e.ownerId===kid.id);
     const rows=mine.length?mine.map(e=>{
-      const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":"✅";
+      const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":e.type==="combine"?"🧬":"✅";
       const txt=e.type==="kindness"?("A kind thing"+(e.note?" — "+esc(e.note):""))
         :e.type==="school"?("School"+(e.note?" — "+esc(e.note):""))
         :e.type==="redeem"?("Spent on "+esc(e.note||"a reward"))
+        :e.type==="combine"?(e.note?esc(e.note):"Fused critters")
         :(e.note?esc(e.note):"Did a chore");
-      const tag=e.type==="redeem"?'<span class="pminus">spent</span>':`<span class="pplus">+1 ${pomIcon(12)}</span>`;
+      const tag=e.type==="redeem"?'<span class="pminus">spent</span>':e.type==="combine"?'<span class="pminus">fused</span>':`<span class="pplus">+1 ${pomIcon(12)}</span>`;
       return `<div class="actrow"><span>${ic}</span><span class="grow">${txt}</span>${tag}<span class="ago">${ago(e.at)}</span></div>`;
     }).join(""):`<p style="font-weight:700;color:var(--soft);text-align:center;padding:20px 0">No ${esc(cnames())} yet —<br>do a chore to earn your first one! 🐣</p>`;
     openSheet(`<h3>My ${esc(cnames())} ${pomIcon(18)}</h3>
@@ -653,8 +689,8 @@
 
     if(fam.log.length){const al=app.querySelector("#actlog");
       fam.log.slice(0,8).forEach(e=>{const kid=member(e.ownerId);
-        const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":pomIcon(15);
-        const txt=e.type==="kindness"?("Kindness "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="school"?("School "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="redeem"?("Redeemed "+esc(e.note||"a reward")):"Did a chore";
+        const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":e.type==="combine"?"🧬":pomIcon(15);
+        const txt=e.type==="kindness"?("Kindness "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="school"?("School "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="redeem"?("Redeemed "+esc(e.note||"a reward")):e.type==="combine"?("Fused critters"+(e.note?" — "+esc(e.note):"")):"Did a chore";
         const li=document.createElement("div");li.className="actrow";
         li.innerHTML=`<span>${ic}</span><span class="grow"><b>${kid?esc(kid.name):"?"}</b> · ${txt}</span><span class="ago">${ago(e.at)}</span>`;
         al.appendChild(li);});}

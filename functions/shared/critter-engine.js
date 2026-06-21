@@ -196,5 +196,8 @@
 
   return {render,list:KEYS,randomArchetype:()=>KEYS[Math.floor(Math.random()*KEYS.length)],
     name:k=>NAMES[k]||(k.charAt(0).toUpperCase()+k.slice(1)),
-    rarityName:n=>['Common','Uncommon','Rare','Legendary'][n]||'Common'};
+    rarityName:n=>['Common','Uncommon','Rare','Legendary'][n]||'Common',
+    // --- deterministic helpers for combining critters ---
+    archetypeFor:(seed)=>KEYS[hash(String(seed))%KEYS.length],   // a species from a seed
+    combineSeed:(seeds)=>'cmb:'+hash((seeds||[]).slice().sort().join('|')).toString(36)}; // stable child seed
 });

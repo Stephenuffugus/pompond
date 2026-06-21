@@ -101,9 +101,39 @@
     return {status:'earned'};
   }
 
+  /* ---- combining (fusion) — DETERMINISTIC from the parent seeds ----
+     Build the spec for a child critter fused from 2–3 parents. Pure: the server
+     and the browser both call this so they agree on the result. Fusing UPGRADES
+     rarity (min(3, best parent + (3-fuse ? 2 : 1))) and the archetype is derived
+     from the child seed across ALL species, so combining can discover new ones. */
+  function makeCombo(parents){
+    const seed=CritterEngine.combineSeed(parents.map(p=>p.seed));
+    const archetype=CritterEngine.archetypeFor(seed);
+    const maxR=parents.reduce((m,p)=>Math.max(m,p.rarity||0),0);
+    const rarity=Math.min(3, maxR + (parents.length>=3 ? 2 : 1));
+    const names=parents.map(p=>CritterEngine.name(p.archetype)).join(' + ');
+    return { seed, archetype, rarity, special:true, tag:'combo', reason:'Combined from '+names };
+  }
+  // Local-mode fusion: remove the parents from fam, append the child. Returns the
+  // child (or {reject}). The server does the same via the Admin SDK (doc ops).
+  function combine(fam,kid,parentIds,reveals,opts){
+    opts=opts||{};
+    const parents=parentIds.map(pid=>fam.critters.find(c=>c.id===pid&&c.ownerId===kid.id)).filter(Boolean);
+    if(parents.length<2||parents.length>3) return {reject:'Pick 2 or 3 of your own critters.'};
+    if(new Set(parentIds).size!==parents.length) return {reject:'Pick different critters.'};
+    const spec=makeCombo(parents);
+    const child=Object.assign({id:id(),ownerId:kid.id,createdAt:Date.now()},spec);
+    const drop=new Set(parents.map(p=>p.id));
+    fam.critters=fam.critters.filter(c=>!drop.has(c.id));
+    fam.critters.push(child); if(reveals)reveals.push(child);
+    logEvent(fam,kid,'combine',spec.reason,opts.byUid);
+    return {child};
+  }
+
   return {
     id, today, doneKey, isDoneToday,
     addCritter, grant, logEvent, bumpStreak,
-    earn, checkSmall, checkMedium, checkBig, resolveChoice, completeChore
+    earn, checkSmall, checkMedium, checkBig, resolveChoice, completeChore,
+    makeCombo, combine
   };
 });

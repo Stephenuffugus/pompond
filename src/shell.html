@@ -123,6 +123,16 @@
   .critter{position:absolute;width:54px;height:54px;animation:bob 6s ease-in-out infinite;
     cursor:grab;touch-action:none;filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
   .critter.dragging{animation:none;z-index:6;cursor:grabbing;filter:drop-shadow(0 12px 9px rgba(0,40,40,.4))}
+  .critter.csel{animation:none;z-index:5;border-radius:50%;box-shadow:0 0 0 4px #fff,0 0 0 8px var(--accent)}
+  /* 🧬 combine */
+  .combinebtn{border:none;background:rgba(63,167,161,.16);color:var(--accent);font-weight:800;font-size:13px;border-radius:999px;padding:5px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .combinebar{display:flex;align-items:center;gap:10px;background:#eafaf8;border:2px solid var(--accent);border-radius:16px;padding:10px 12px;margin-top:10px;font-weight:800;color:var(--ink);font-size:14px}
+  .combinebar #combinemsg{flex:1}
+  .combinebar .cbtns{display:flex;gap:8px;flex:0 0 auto}
+  .combinebar button{border:none;border-radius:12px;padding:8px 13px;font-weight:800;font-size:13px;cursor:pointer}
+  .combinebar #combineGo{background:var(--accent);color:#fff}
+  .combinebar #combineGo:disabled{opacity:.45;cursor:default}
+  .combinebar #combineCancel{background:#fff;color:var(--soft)}
   .critter::after{content:"";position:absolute;left:14%;right:14%;bottom:-7px;height:8px;border-radius:50%;
     background:rgba(6,40,56,.28);filter:blur(2px)}
   @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}

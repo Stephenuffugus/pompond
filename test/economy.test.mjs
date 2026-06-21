@@ -71,5 +71,32 @@ let ap = freshFam({ approval:true });
 const ra = Economy.completeChore(ap, kid(ap), ap.chores[0], []);
 ok('approval mode → pending, no palm yet', ra.status === 'pending' && kid(ap).palms === 0 && ap.pending.length === 1);
 
+// --- combining (fusion) ---
+let cf = freshFam();
+cf.critters = [
+  { id:'a', ownerId:'k1', seed:'s-a', archetype:'frog', rarity:0 },
+  { id:'b', ownerId:'k1', seed:'s-b', archetype:'duck', rarity:1 },
+  { id:'c', ownerId:'k1', seed:'s-c', archetype:'koi',  rarity:0 },
+  { id:'x', ownerId:'k2', seed:'s-x', archetype:'cat',  rarity:0 }   // another kid's
+];
+const cr = [];
+const cres = Economy.combine(cf, kid(cf), ['a','b'], cr);
+ok('combine consumes parents, mints 1 child (3→2 critters)', cf.critters.length === 3 && !cf.critters.find(c=>c.id==='a') && !cf.critters.find(c=>c.id==='b'));
+ok('child is special combo with a "Combined from" reason', cres.child.tag==='combo' && cres.child.special===true && /Combined from/.test(cres.child.reason));
+ok('2-fuse rarity = max+1 (1→2)', cres.child.rarity === 2);
+ok('combine logs a ledger event', cf.log.some(e=>e.type==='combine'));
+ok('child appears in reveals', cr.length===1 && cr[0].id===cres.child.id);
+// determinism: same parent seeds → same child seed/archetype
+const m1 = Economy.makeCombo([{seed:'s-a',archetype:'frog',rarity:0},{seed:'s-b',archetype:'duck',rarity:1}]);
+const m2 = Economy.makeCombo([{seed:'s-b',archetype:'duck',rarity:1},{seed:'s-a',archetype:'frog',rarity:0}]);
+ok('combine is deterministic + order-independent', m1.seed===m2.seed && m1.archetype===m2.archetype);
+// 3-fuse jumps rarity further (max+2), capped at 3
+const m3 = Economy.makeCombo([{seed:'1',archetype:'frog',rarity:1},{seed:'2',archetype:'duck',rarity:0},{seed:'3',archetype:'koi',rarity:0}]);
+ok('3-fuse rarity = max+2 (1→3)', m3.rarity === 3);
+// can't fuse another kid's critter / need 2+
+let cf2 = freshFam(); cf2.critters = cf.critters.slice();
+ok('rejects fusing a non-owned critter', !!Economy.combine(cf2, kid(cf2), ['c','x'], []).reject);
+ok('rejects fewer than 2', !!Economy.combine(cf2, kid(cf2), ['c'], []).reject);
+
 console.log(`\n${fail === 0 ? '🎉 ALL PASS' : '⚠️  FAILURES'} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

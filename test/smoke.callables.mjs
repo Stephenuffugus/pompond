@@ -77,6 +77,18 @@ ok('kid SAVE advanced the big bucket + cleared the choice', k.buckets.b === 1 &&
 
 await throws('a kid CANNOT grant itself a reward token', setDoc(doc(K.db,`families/${fid}/inventory/hax`), { ownerId:'k1', tier:'big', status:'ready' }));
 
+// ---------- kid fuses two of their OWN critters (server-authoritative sink) ----------
+const critDocs = (await getDocs(collection(P.db,`families/${fid}/critters`))).docs;
+const myCrit = critDocs.filter(d=>d.data().ownerId==='k1').slice(0,2).map(d=>d.id);
+const beforeN = critDocs.length;
+const fz = await K.call('combineCritters')({ critterIds: myCrit });
+ok('combineCritters returns the fused child as a reveal', Array.isArray(fz.reveals) && fz.reveals.length===1 && fz.reveals[0].tag==='combo');
+const afterDocs = (await getDocs(collection(P.db,`families/${fid}/critters`))).docs;
+ok('fusion is a Firestore sink (2 consumed, 1 created → net -1)', afterDocs.length === beforeN-1);
+ok('parents gone + combo child persisted', !afterDocs.find(d=>d.id===myCrit[0]) && !afterDocs.find(d=>d.id===myCrit[1]) && afterDocs.some(d=>d.data().tag==='combo'));
+await throws('combine rejects fewer than 2 critters', K.call('combineCritters')({ critterIds:[myCrit[0]] }));
+await throws('combine rejects critters that are not the kid\'s', K.call('combineCritters')({ critterIds:['nope1','nope2'] }));
+
 // ---------- redeem (kid) → deliver (parent) ----------
 const smallReady = inv.find(i => i.tier==='small' && i.status==='ready');
 const smallId = (await getDocs(collection(P.db,`families/${fid}/inventory`))).docs.find(d=>d.data().tier==='small'&&d.data().status==='ready').id;

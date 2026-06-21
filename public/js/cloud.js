@@ -83,7 +83,7 @@ async function bootCloud() {
   const fns = {};
   ['createFamily','regenJoinCode','setKidCode','bindDevice','completeChore','givePom',
    'resolveChoice','redeem','approvePending','denyPending','markGiven','resetProgress',
-   'joinFamilyAsParent','regenParentCode']
+   'joinFamilyAsParent','regenParentCode','combineCritters']
     .forEach(n => fns[n] = call(n));
 
   const gate = document.getElementById('authgate');
@@ -145,6 +145,7 @@ async function bootCloud() {
     completeChore: (memberId, choreId) => fns.completeChore({ memberId, choreId }).then(reveal),
     givePom: (memberId, src, note) => fns.givePom({ memberId, src, note }),
     resolveChoice: (memberId, saveUp) => fns.resolveChoice({ saveUp }).then(reveal),
+    combine: (memberId, ids) => fns.combineCritters({ memberId, critterIds: ids }).then(reveal),
     redeem: (itemId, rewardId) => fns.redeem({ itemId, rewardId }),
     approve: (pendingId) => fns.approvePending({ pendingId }),
     deny: (pendingId) => fns.denyPending({ pendingId }),

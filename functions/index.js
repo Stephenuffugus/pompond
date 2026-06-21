@@ -416,6 +416,42 @@ exports.resetProgress = onCall(async (req) => {
   return { ok: true };
 });
 
+// Kid fuses 2–3 of their OWN critters into one new deterministic critter; the
+// parents are consumed. Server-authoritative + transactional: verifies every
+// parent belongs to the member, then deletes them and creates the child. This is
+// also a Firestore sink — N docs collapse into 1.
+exports.combineCritters = onCall(async (req) => {
+  const a = requireAuth(req);
+  const fid = a.token.familyId;
+  if (!fid) throw new HttpsError('permission-denied', 'No family.');
+  const isParent = a.token.role === 'parent';
+  const memberId = isParent ? (req.data && req.data.memberId) : a.token.memberId;
+  if (!memberId) throw new HttpsError('permission-denied', 'No member bound.');
+  const ids = Array.isArray(req.data && req.data.critterIds) ? req.data.critterIds.slice(0, 3) : [];
+  if (ids.length < 2) throw new HttpsError('invalid-argument', 'Pick 2 or 3 critters.');
+  if (new Set(ids).size !== ids.length) throw new HttpsError('invalid-argument', 'Pick different critters.');
+  const ref = famRef(fid);
+  return db.runTransaction(async (tx) => {
+    const snaps = await Promise.all(ids.map(id => tx.get(ref.collection('critters').doc(id))));
+    const parents = [];
+    for (const s of snaps) {
+      if (!s.exists) throw new HttpsError('not-found', 'One of those critters is gone.');
+      const c = Object.assign({ id: s.id }, s.data());
+      if (c.ownerId !== memberId) throw new HttpsError('permission-denied', 'Not your critter.');
+      parents.push(c);
+    }
+    const spec = Economy.makeCombo(parents);
+    const childId = ref.collection('critters').doc().id;
+    const child = Object.assign({ id: childId, ownerId: memberId, createdAt: Date.now() }, spec);
+    for (const p of parents) tx.delete(ref.collection('critters').doc(p.id));
+    tx.set(ref.collection('critters').doc(childId), child);
+    const evId = Economy.id();
+    tx.set(ref.collection('ledger').doc(evId),
+      { id: evId, ownerId: memberId, type: 'combine', note: spec.reason, at: Date.now(), byUid: a.uid });
+    return { reveals: [child], status: 'combined' };
+  });
+});
+
 /* ---------------- Phase 2 seam: premium photo-verify ---------------- */
 // Wired now (cheap), shipped later. Vision API per-call cost is the honest gate.
 exports.verifyChorePhoto = onCall(async (req) => {
