@@ -95,6 +95,12 @@ async function bootCloud() {
   function stopSync() { unsub.forEach(u => { try { u(); } catch (e) {} }); unsub = []; }
   const known = { members: new Set(), chores: new Set(), rewards: new Set() };
 
+  // Live-sync only the most-recent critters. A growing collection would otherwise
+  // cost an unbounded initial read every session AND force a full re-assemble of
+  // the family on every change. The pond shows the latest anyway; the rest stay
+  // in Firestore (a future "load older" can page them in on demand).
+  const CRITTER_LIMIT = 300;
+
   function subscribe(fid, role, memberId) {
     stopSync();
     const ref = fsMod.doc(db, 'families', fid);
@@ -116,7 +122,8 @@ async function bootCloud() {
         setup: cache.fam.setup !== false,
         name: cache.fam.name, settings: cache.fam.settings || {},
         members: cache.members, chores: cache.chores, rewards: cache.rewards,
-        critters: cache.critters, inventory: cache.inventory,
+        critters: cache.critters.slice().sort((a,b)=> (a.createdAt||0)-(b.createdAt||0)),  // oldest→newest so the pond's last-N = newest
+        inventory: cache.inventory,
         log: cache.ledger.slice().sort((a,b)=> (b.at||0)-(a.at||0)).slice(0,60),
         pending: cache.pending, done
       };
@@ -128,7 +135,12 @@ async function bootCloud() {
     unsub.push(sub('members','members'));
     unsub.push(sub('chores','chores'));
     unsub.push(sub('rewards','rewards'));
-    unsub.push(sub('critters','critters'));
+    // critters: most-recent N, newest-first (single-field createdAt index is automatic)
+    unsub.push(fsMod.onSnapshot(
+      fsMod.query(fsMod.collection(db,'families',fid,'critters'), fsMod.orderBy('createdAt','desc'), fsMod.limit(CRITTER_LIMIT)),
+      s => { cache.critters = s.docs.map(d => Object.assign({ id:d.id }, d.data())); push(); },
+      err => console.warn('[PomPond] snapshot critters', err && err.code)
+    ));
     unsub.push(sub('inventory','inventory'));
     unsub.push(sub('ledger','ledger'));
     unsub.push(sub('pending','pending'));
