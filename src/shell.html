@@ -111,24 +111,19 @@
   .bucket.m i{background:linear-gradient(90deg,#5BB1FF,#9ccfff)}
   .bucket.b i{background:linear-gradient(90deg,var(--gold),#ffd98a)}
 
-  /* pond — layered water that actually reads like a pond */
-  /* organic blob outline so it reads as a real pond, not a rounded card */
-  .pond{--pondR:46% 54% 47% 53% / 61% 58% 42% 39%;margin-top:14px;border-radius:var(--pondR);min-height:320px;
-    position:relative;overflow:hidden;touch-action:pan-y;
+  /* GRASSY BANK scene — the actual water is the .pond-stage blob inside, so it can
+     shrink when you zoom out and reveal the grassy edges + reeds around it. */
+  .pond{margin-top:14px;border-radius:30px;min-height:320px;position:relative;overflow:hidden;touch-action:pan-y;padding:10px;
     background:
-      radial-gradient(130% 85% at 50% -18%, #D6F2EE 0%, rgba(214,242,238,0) 55%),
-      radial-gradient(80% 60% at 78% 18%, rgba(255,255,255,.35) 0%, transparent 45%),
-      linear-gradient(180deg,#93D6D2 0%,#5FB7C6 42%,#3E92B4 78%,#2C77A0 100%);
-    box-shadow:var(--shadow), inset 0 -34px 54px -22px rgba(6,34,54,.55), inset 0 16px 36px -20px rgba(255,255,255,.7);
-    padding:10px;border:1px solid rgba(255,255,255,.45)}
-  /* moving surface shimmer + soft caustics */
-  .pond::before{content:"";position:absolute;inset:-20%;pointer-events:none;opacity:.45;
-    background:repeating-linear-gradient(118deg, rgba(255,255,255,.10) 0 7px, transparent 7px 20px);
-    animation:shimmer 16s linear infinite}
+      radial-gradient(115% 80% at 50% 120%, #57A046 0%, rgba(87,160,70,0) 62%),
+      radial-gradient(100% 70% at 50% -12%, #C6E89E 0%, rgba(198,232,158,0) 55%),
+      linear-gradient(180deg,#A3D67E 0%,#7CC05C 55%,#5FA84A 100%);
+    box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.4)}
   @keyframes shimmer{from{transform:translateX(-60px)}to{transform:translateX(60px)}}
-  /* depth vignette */
-  .pond::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-    box-shadow:inset 0 0 70px rgba(8,36,58,.28)}
+  /* reeds + grass tufts on the bank (behind the water blob; frame it on zoom-out) */
+  .pondbank{position:absolute;inset:0;pointer-events:none;z-index:0}
+  .pondbank .bk{position:absolute;bottom:2px;font-size:28px;filter:drop-shadow(0 2px 2px rgba(0,40,20,.3));animation:lilybob 7s ease-in-out infinite}
+  .pondbank .bk.tall{font-size:36px;bottom:-2px}
   .pond .lily{position:absolute;font-size:28px;opacity:.9;filter:drop-shadow(0 3px 3px rgba(0,30,40,.32));
     animation:lilybob 8s ease-in-out infinite}
   @keyframes lilybob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
@@ -170,8 +165,18 @@
     background:rgba(6,40,56,.28);filter:blur(2px)}
   @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
   .pondcount{position:absolute;top:9px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.9);border-radius:14px;padding:3px 11px;font-weight:800;font-size:12px;color:var(--ink);z-index:3}
-  /* zoomable layer: everything pannable/scalable lives in the stage; badges + controls sit outside it */
-  .pond-stage{position:absolute;inset:0;transform-origin:center center;will-change:transform}
+  /* zoomable WATER blob: everything pannable/scalable lives in the stage; badges +
+     controls sit outside it. Zooming out shrinks this, revealing the grassy bank. */
+  .pond-stage{position:absolute;inset:0;transform-origin:center center;will-change:transform;overflow:hidden;
+    border-radius:46% 54% 47% 53% / 61% 58% 42% 39%;
+    background:
+      radial-gradient(130% 85% at 50% -18%, #D6F2EE 0%, rgba(214,242,238,0) 55%),
+      radial-gradient(80% 60% at 78% 18%, rgba(255,255,255,.35) 0%, transparent 45%),
+      linear-gradient(180deg,#93D6D2 0%,#5FB7C6 42%,#3E92B4 78%,#2C77A0 100%);
+    box-shadow:inset 0 -34px 54px -22px rgba(6,34,54,.55), inset 0 16px 36px -20px rgba(255,255,255,.7)}
+  .pond-stage::before{content:"";position:absolute;inset:-20%;pointer-events:none;opacity:.45;
+    background:repeating-linear-gradient(118deg, rgba(255,255,255,.10) 0 7px, transparent 7px 20px);animation:shimmer 16s linear infinite}
+  .pond-stage::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 70px rgba(8,36,58,.28)}
   .pond.zoomed{cursor:grab;touch-action:none}
   .pond.zoomed:active{cursor:grabbing}
   .pond-zoom{position:absolute;left:10px;bottom:10px;z-index:3;display:flex;flex-direction:column;gap:7px}

@@ -395,6 +395,12 @@
   function paintPond(kid){
     const pond=app.querySelector("#pond"); const all=crittersOf(kid.id); const list=all.slice(-28);
     pond.innerHTML="";
+    // Grassy BANK decor (reeds + tufts) — sits behind the water blob, so it's
+    // covered when full and frames the pond as you zoom out. Appended first = behind.
+    const bank=document.createElement("div"); bank.className="pondbank";
+    bank.innerHTML=[["🌾",4,1],["🌿",13,0],["🌾",88,1],["🌿",80,0],["🌿",48,0],["🪻",30,0],["🌾",64,1]]
+      .map(([e,x,tall])=>`<span class="bk${tall?" tall":""}" style="left:${x}%">${e}</span>`).join("");
+    pond.appendChild(bank);
     // Everything pannable/zoomable lives in the stage; badges + zoom buttons sit outside it.
     const stage=document.createElement("div"); stage.className="pond-stage";
     // CSS lily pads (disc with the classic V-notch), some with a lotus flower
@@ -496,7 +502,7 @@
   // Pinch / wheel / button zoom + drag-to-pan. Zoom state lives in module vars so
   // it survives the re-render paintPond does on every state change.
   function setupPondZoom(pond,stage){
-    const MINZ=1, MAXZ=3.2;
+    const MINZ=0.55, MAXZ=3.2;   // <1 = zoom OUT to reveal the grassy bank + reeds
     const dist=t=>Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
     const clampPan=()=>{
       const r=pond.getBoundingClientRect();
