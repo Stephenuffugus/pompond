@@ -93,7 +93,7 @@
       fam.pending.push({id:id(),ownerId:kid.id,choreId:chore.id,at:Date.now()});
       return {status:'pending'};
     }
-    earn(fam,kid,{type:'chore',byUid:opts.byUid},reveals);
+    earn(fam,kid,{type:'chore',byUid:opts.byUid,note:chore.name},reveals);  // note=chore name so kids can see what each Pom was for
     return {status:'earned'};
   }
 

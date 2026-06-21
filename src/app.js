@@ -107,7 +107,7 @@
   }
   function approve(p){
     if(cloudActive()){ Backend.cloud.approve(p.id).catch(()=>toast("Couldn't reach server")); return; }
-    const kid=member(p.ownerId); if(kid){ Economy.earn(fam,kid,{type:"chore"},revealQ); }
+    const kid=member(p.ownerId); if(kid){ const ch=fam.chores.find(c=>c.id===p.choreId); Economy.earn(fam,kid,{type:"chore",note:ch?ch.name:""},revealQ); }
     revealQ=[];                                  // reveals are for the kid's device, not the parent's
     fam.pending=fam.pending.filter(x=>x.id!==p.id); save(); render();
   }
@@ -279,7 +279,7 @@
       <div class="me" style="--kc:${kid.color}">
         <div class="disc">${kid.emoji}</div>
         <div class="info"><h2>${esc(kid.name)}'s Pond</h2>
-          <div class="palms">${pomIcon(15)} <b>${kid.palms||0}</b> ${cnames()} · ${crittersOf(kid.id).length} critters${kid.streak?` · 🔥 ${kid.streak}-day streak`:""}</div></div>
+          <div class="palms"><button class="palmchip" id="palmlog" aria-label="See what you earned ${esc(cnames())} for">${pomIcon(15)} <b>${kid.palms||0}</b> ${cnames()} <span class="pchev">›</span></button> · ${crittersOf(kid.id).length} critters${kid.streak?` · 🔥 ${kid.streak}-day streak`:""}</div></div>
       </div>
       <div class="buckets">
         ${bucketHTML("s","Small",kid.buckets.s,cap.smallCap)}
@@ -295,6 +295,7 @@
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Fill buckets for rewards!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
+    const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
     const kib=app.querySelector("#install"); if(kib)kib.onclick=doInstall;
 
     if(ready.length){
@@ -402,6 +403,23 @@
     openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}</h3>
       <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity)}</div>
       <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 14px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="school"?" · 🏫 School "+esc(cname()):" · ✨ Kindness critter"):""}</p>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
+  }
+  // Kid taps their Pom count → a plain-language history of what each Pom was for.
+  function palmHistory(kid){
+    const mine=fam.log.filter(e=>e.ownerId===kid.id);
+    const rows=mine.length?mine.map(e=>{
+      const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":"✅";
+      const txt=e.type==="kindness"?("A kind thing"+(e.note?" — "+esc(e.note):""))
+        :e.type==="school"?("School"+(e.note?" — "+esc(e.note):""))
+        :e.type==="redeem"?("Spent on "+esc(e.note||"a reward"))
+        :(e.note?esc(e.note):"Did a chore");
+      const tag=e.type==="redeem"?'<span class="pminus">spent</span>':`<span class="pplus">+1 ${pomIcon(12)}</span>`;
+      return `<div class="actrow"><span>${ic}</span><span class="grow">${txt}</span>${tag}<span class="ago">${ago(e.at)}</span></div>`;
+    }).join(""):`<p style="font-weight:700;color:var(--soft);text-align:center;padding:20px 0">No ${esc(cnames())} yet —<br>do a chore to earn your first one! 🐣</p>`;
+    openSheet(`<h3>My ${esc(cnames())} ${pomIcon(18)}</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin-top:-6px">${kid.palms||0} earned in total${kid.streak?` · 🔥 ${kid.streak}-day streak`:""}</p>
+      <div class="actlog" style="max-height:48vh;overflow:auto;margin-bottom:14px">${rows}</div>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
   }
   function galleryModal(){

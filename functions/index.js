@@ -371,8 +371,11 @@ exports.approvePending = onCall(async (req) => {
   const pSnap = await ref.collection('pending').doc(pendId).get();
   if (!pSnap.exists) throw new HttpsError('not-found', 'Pending item gone.');
   const p = pSnap.data();
+  // look up the chore name so the ledger records what the Pom was for
+  const chSnap = p.choreId ? await ref.collection('chores').doc(p.choreId).get() : null;
+  const choreName = chSnap && chSnap.exists ? (chSnap.data().name || '') : '';
   const out = await applyEconomy(fid, p.ownerId, (fam, kid, reveals) => {
-    Economy.earn(fam, kid, { type: 'chore' }, reveals);
+    Economy.earn(fam, kid, { type: 'chore', note: choreName }, reveals);
     return { status: 'earned' };
   });
   await ref.collection('pending').doc(pendId).delete();
