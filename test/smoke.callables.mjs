@@ -6,7 +6,7 @@
 //   Run:  npm run smoke   (firebase emulators:exec auth,firestore,functions ...)
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, doc, setDoc, getDoc, getDocs, collection, query, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, doc, setDoc, getDoc, getDocs, collection, query, orderBy, limit, startAfter } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 
 const cfg = { apiKey: 'demo', projectId: 'demo-pom-pond', appId: 'demo' };
@@ -137,6 +137,11 @@ const recent = await getDocs(query(collection(P.db, `families/${fid}/critters`),
 ok('recent-critters query works (orderBy createdAt desc + limit, no index needed)', recent.size === 3);
 const ts = recent.docs.map(d => d.data().createdAt);
 ok('recent critters return newest-first', ts[0] >= ts[1] && ts[1] >= ts[2]);
+// "load older" pagination (cursor = oldest of the page, fetch the next, no overlap)
+const cur = ts[ts.length - 1];
+const older = await getDocs(query(collection(P.db, `families/${fid}/critters`), orderBy('createdAt','desc'), startAfter(cur), limit(3)));
+const ids1 = new Set(recent.docs.map(d=>d.id));
+ok('load-older pages strictly older critters with no overlap', older.docs.length > 0 && older.docs.every(d => d.data().createdAt <= cur && !ids1.has(d.id)));
 
 console.log(`\n${fail === 0 ? '🎉 ALL PASS' : '⚠️  FAILURES'} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

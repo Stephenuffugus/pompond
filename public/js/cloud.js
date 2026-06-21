@@ -163,6 +163,12 @@ async function bootCloud() {
     deny: (pendingId) => fns.denyPending({ pendingId }),
     markGiven: (itemId) => fns.markGiven({ itemId }),
     resetProgress: () => fns.resetProgress({}),
+    // Page in critters older than the live window (for the full collection view).
+    // Family-wide + a single-field createdAt index → no composite index needed.
+    loadOlder: (beforeCreatedAt, n) => fsMod.getDocs(fsMod.query(
+        fsMod.collection(db,'families',cloud.fid,'critters'),
+        fsMod.orderBy('createdAt','desc'), fsMod.startAfter(beforeCreatedAt), fsMod.limit(n||300)
+      )).then(s => s.docs.map(d => Object.assign({ id:d.id }, d.data()))),
 
     // Parent config edits write straight to Firestore (allowed by rules, offline-capable).
     // Economy fields are never written here — only the server writes those.

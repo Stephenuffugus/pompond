@@ -559,18 +559,42 @@
     });
   }
   function dexModal(kid){
-    const mine=crittersOf(kid.id);
-    const found=CritterEngine.list.filter(k=>mine.some(c=>c.archetype===k)).length;
-    const cells=CritterEngine.list.map(k=>{
-      const owned=mine.filter(c=>c.archetype===k);
-      if(!owned.length)return `<div style="text-align:center;opacity:.45"><div style="width:62px;height:62px;margin:0 auto;filter:grayscale(1) contrast(.4) brightness(1.1)">${renderCritter("mystery:"+k,k,0)}</div><div style="font-size:11px;font-weight:800;color:var(--soft)">???</div></div>`;
-      const best=owned.reduce((a,b)=>b.rarity>a.rarity?b:a);
-      return `<div style="text-align:center"><div style="width:62px;height:62px;margin:0 auto">${renderCritter(best.seed,best.archetype,best.rarity)}</div><div style="font-size:11px;font-weight:800;color:var(--ink)">${CritterEngine.name(k)} ×${owned.length}</div></div>`;
-    }).join("");
-    openSheet(`<h3>${esc(kid.name)}'s Collection <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${found}/${CritterEngine.list.length} species</span></h3>
-      <div class="pbar" style="margin:-4px 0 14px"><i style="width:${Math.round(found/CritterEngine.list.length*100)}%"></i></div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${cells}</div>
-      <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
+    // The pond live-syncs only recent critters (cost bound); the Dex can page in
+    // older ones on demand in cloud mode so the full collection is browsable.
+    let pool=crittersOf(kid.id).slice();
+    const seen=new Set(pool.map(c=>c.id));
+    let cursor=pool.reduce((m,c)=>Math.min(m,c.createdAt||0), Date.now());
+    let more=cloudActive() && !!(Backend.cloud && Backend.cloud.loadOlder);
+    let loading=false;
+    function paint(){
+      const total=CritterEngine.list.length;
+      const found=CritterEngine.list.filter(k=>pool.some(c=>c.archetype===k)).length;
+      const cells=CritterEngine.list.map(k=>{
+        const owned=pool.filter(c=>c.archetype===k);
+        if(!owned.length)return `<div style="text-align:center;opacity:.45"><div style="width:62px;height:62px;margin:0 auto;filter:grayscale(1) contrast(.4) brightness(1.1)">${renderCritter("mystery:"+k,k,0)}</div><div style="font-size:11px;font-weight:800;color:var(--soft)">???</div></div>`;
+        const best=owned.reduce((a,b)=>b.rarity>a.rarity?b:a);
+        return `<div style="text-align:center"><div style="width:62px;height:62px;margin:0 auto">${renderCritter(best.seed,best.archetype,best.rarity)}</div><div style="font-size:11px;font-weight:800;color:var(--ink)">${CritterEngine.name(k)} ×${owned.length}</div></div>`;
+      }).join("");
+      openSheet(`<h3>${esc(kid.name)}'s Collection <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${found}/${total} species · ${pool.length} critters</span></h3>
+        <div class="pbar" style="margin:-4px 0 14px"><i style="width:${Math.round(found/total*100)}%"></i></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${cells}</div>
+        ${more?`<button class="gbtn" id="loadolder" style="margin-top:12px"${loading?" disabled":""}>${loading?"Loading…":"📜 Load older critters"}</button>`:""}
+        <div class="sa"><button class="cancel">Close</button></div>`,s=>{
+        s.querySelector(".cancel").onclick=closeSheet;
+        const lb=s.querySelector("#loadolder");
+        if(lb)lb.onclick=()=>{ if(loading)return; loading=true; paint();
+          Backend.cloud.loadOlder(cursor,300).then(rows=>{
+            if(rows&&rows.length){
+              cursor=rows.reduce((m,c)=>Math.min(m,c.createdAt||0),cursor);   // advance family-wide cursor
+              rows.forEach(c=>{ if(c.ownerId===kid.id && !seen.has(c.id)){ seen.add(c.id); pool.push(c); } });
+              if(rows.length<300)more=false;
+            } else more=false;
+            loading=false; paint();
+          }).catch(()=>{ loading=false; toast("Couldn't load older critters"); paint(); });
+        };
+      });
+    }
+    paint();
   }
   function choiceModal(kid){
     openSheet(`<div class="choice"><h3>Pond full! 💧 Your choice…</h3>
