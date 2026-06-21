@@ -325,7 +325,7 @@ exports.givePom = onCall(async (req) => {
   const { memberId, src, note } = req.data || {};
   // positive-behaviour categories (the app's GIVE_CATS keys). Specific reason
   // text rides along in `note`; clamp it so a client can't store a huge string.
-  const CATS = ['kindness','helping','effort','respect','school','family'];
+  const CATS = ['kindness','helping','effort','respect','school','family','custom'];
   if (!memberId || !CATS.includes(src))
     throw new HttpsError('invalid-argument', 'memberId + a valid src category required.');
   const reason = String(note || '').slice(0, 80);

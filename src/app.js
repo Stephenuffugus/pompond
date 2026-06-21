@@ -45,6 +45,7 @@
       ["🛏️","Got ready on time"],["😴","Smooth bedtime"],["🌟","Big helper today"]]}
   ];
   const CATMAP={}; GIVE_CATS.forEach(c=>CATMAP[c.key]={emoji:c.emoji,name:c.name});
+  CATMAP.custom={emoji:"⭐",name:"Bonus"};   // parent-defined "Your reasons"
 
   function defaultFamily(){
     return {
@@ -738,23 +739,54 @@
   function clockTime(ts){return new Date(ts).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});}
 
   function kindnessSheet(kid){
+    const allKids=kids();
+    let toAll=false;   // #3: award to one kid or the whole family
     // Award a bonus Pom for a positive behaviour — tap a reason to give instantly.
-    const award=(cat,label,emoji)=>{ givePom(kid,cat,label); closeSheet(); confetti(); beep(true); render();
-      toast((emoji||"🌟")+" "+esc(cname())+" given to "+esc(kid.name)); };
+    const award=(cat,label,emoji)=>{
+      const targets=toAll?allKids:[kid];
+      targets.forEach(k=>givePom(k,cat,label));
+      closeSheet(); confetti(); beep(true); render();
+      toast((emoji||"🌟")+" "+esc(cname())+" given to "+(toAll?"everyone":esc(kid.name)));
+    };
     const sections=GIVE_CATS.map(c=>`<div class="givecat">${c.emoji} ${esc(c.name)}</div><div class="giverow">`+
       c.reasons.map(r=>`<button class="givechip" data-cat="${c.key}" data-emoji="${r[0]}" data-label="${esc(r[1])}">${r[0]} ${esc(r[1])}</button>`).join("")+`</div>`).join("");
-    openSheet(`<h3>Give ${esc(kid.name)} a ${esc(cname())} ${pomIcon(17)}</h3>
-      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-8px 0 8px">Tap what they did — they'll earn a ${esc(cname())} + a critter 🐣</p>
-      <div class="givewrap">${sections}
+    const custom=(fam.settings.customReasons||[]);
+    const customSection=custom.length?`<div class="givecat">⭐ Your reasons</div><div class="giverow">`+
+      custom.map(r=>`<button class="givechip" data-cat="custom" data-emoji="${r.e}" data-label="${esc(r.l)}">${r.e} ${esc(r.l)}</button>`).join("")+`</div>`:"";
+    const targetToggle=allKids.length>1?`<div class="gtoggle"><button class="on" data-t="one">👤 ${esc(kid.name)}</button><button data-t="all">👨‍👩‍👧‍👦 Everyone</button></div>`:"";
+    openSheet(`<h3>Give a ${esc(cname())} ${pomIcon(17)}</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-8px 0 8px">Tap what they did — they'll earn a ${esc(cname())} + a critter 🐣 · <a id="editreasons" style="color:var(--accent);font-weight:800;cursor:pointer">✏️ edit reasons</a></p>
+      ${targetToggle}
+      <div class="givewrap">${sections}${customSection}
         <div class="givecat">✍️ Something else</div>
         <div class="minrow"><input id="gnote" placeholder="Type what they did…" style="flex:1" maxlength="60"><button class="save" id="gcustom">Give</button></div>
       </div>
       <div class="sa"><button class="cancel">Close</button></div>`,sheet=>{
+      const tg=sheet.querySelector(".gtoggle");
+      if(tg)tg.querySelectorAll("button").forEach(b=>b.onclick=()=>{ toAll=b.dataset.t==="all"; tg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b)); });
       sheet.querySelectorAll(".givechip").forEach(b=>b.onclick=()=>award(b.dataset.cat,b.dataset.label,b.dataset.emoji));
       const note=sheet.querySelector("#gnote");
-      sheet.querySelector("#gcustom").onclick=()=>{ const n=(note.value||"").trim(); if(!n){ note.focus(); return; } award("kindness",n,"🌟"); };
+      sheet.querySelector("#gcustom").onclick=()=>{ const n=(note.value||"").trim(); if(!n){ note.focus(); return; } award("custom",n,"⭐"); };
       note.onkeydown=(e)=>{ if(e.key==="Enter"){ e.preventDefault(); sheet.querySelector("#gcustom").click(); } };
+      sheet.querySelector("#editreasons").onclick=()=>customReasonsSheet(kid);
       sheet.querySelector(".cancel").onclick=closeSheet;
+    });
+  }
+  // #1: parents add/remove their own reasons — saved in family settings, shown in the give list.
+  function customReasonsSheet(kid){
+    let pickEmoji="⭐";
+    const list=(fam.settings.customReasons||[]);
+    openSheet(`<h3>Your own ${esc(cnames())} reasons ⭐</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-8px 0 10px">Add reasons that fit your family — they appear in the give list for every kid.</p>
+      <div id="crlist">${list.length?list.map((r,i)=>`<div class="minrow" style="margin-bottom:7px"><span style="flex:1;font-weight:800">${r.e} ${esc(r.l)}</span><button class="iconbtn" data-rm="${i}">🗑️</button></div>`).join(""):'<div class="hint" style="margin:4px 0">No custom reasons yet — add one below.</div>'}</div>
+      <div class="field" style="margin-top:12px"><label>Add a reason</label>
+        <div class="minrow"><button class="iconbtn" id="cremoji" style="font-size:20px;width:46px">⭐</button><input id="crlabel" placeholder="e.g. Practiced piano" maxlength="40" style="flex:1"><button class="save" id="cradd">Add</button></div></div>
+      <div class="sa"><button class="cancel">Done</button></div>`,s=>{
+      s.querySelector("#cremoji").onclick=()=>openEmojiPicker([pickEmoji],1,arr=>{ pickEmoji=arr[0]||"⭐"; s.querySelector("#cremoji").textContent=pickEmoji; },"Pick an icon");
+      s.querySelector("#cradd").onclick=()=>{ const l=(s.querySelector("#crlabel").value||"").trim(); if(!l){ s.querySelector("#crlabel").focus(); return; }
+        (fam.settings.customReasons=fam.settings.customReasons||[]).push({e:pickEmoji,l}); save(); customReasonsSheet(kid); };
+      s.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ fam.settings.customReasons.splice(+b.dataset.rm,1); save(); customReasonsSheet(kid); });
+      s.querySelector(".cancel").onclick=()=>kindnessSheet(kid);
     });
   }
 
@@ -771,7 +803,7 @@
      multi-select (up to `max`). Layers ABOVE the open sheet so the
      form underneath keeps its state; calls onDone(arrayOfEmoji).
      ============================================================ */
-  function openEmojiPicker(initial,max,onDone){
+  function openEmojiPicker(initial,max,onDone,title){
     max=max||3;
     const DATA=(typeof EMOJI_DATA!=="undefined"&&EMOJI_DATA)||{order:[],groups:{}};
     let selected=(initial||[]).filter(Boolean).slice(0,max);
@@ -781,7 +813,7 @@
 
     const wrap=document.createElement("div"); wrap.className="epscrim";
     wrap.innerHTML=`<div class="epcard">
-      <div class="ephead"><b>Chore icons</b><span class="ephint" id="ephint"></span></div>
+      <div class="ephead"><b>${esc(title||"Chore icons")}</b><span class="ephint" id="ephint"></span></div>
       <div class="epchips" id="epchips"></div>
       <input class="epsearch" id="epsearch" placeholder="Search emojis…  (broom, dog, plant…)" autocomplete="off">
       <div class="eptabs" id="eptabs"></div>
