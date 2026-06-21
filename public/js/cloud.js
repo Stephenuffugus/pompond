@@ -254,7 +254,7 @@ async function bootCloud() {
       <div style="text-align:left;font-weight:700;color:var(--ink);font-size:14px;line-height:1.45;margin:0 0 18px">
         <div style="margin:7px 0">✅ Kids do <b>chores</b> &amp; kind things to earn <b>Poms</b></div>
         <div style="margin:7px 0">🐣 Every Pom hatches a <b>collectible critter</b> into their pond</div>
-        <div style="margin:7px 0">🎁 Filling buckets unlocks <b>rewards you choose</b></div>
+        <div style="margin:7px 0">🎁 Filling <b>reward ponds</b> unlocks rewards you choose</div>
       </div>
       <div class="sa"><button class="save" id="ppgo">Get started →</button></div>
       <p style="font-size:12px;margin:13px 0 0">A grown-up signs up first, sets a PIN, and adds the kids.</p>

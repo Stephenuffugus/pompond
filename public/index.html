@@ -597,7 +597,7 @@
     if(kid.buckets.s>=cap){
       kid.buckets.s-=cap;
       grant(fam,kid,"small");
-      addCritter(fam,kid.id,1,false,null,reveals,"Bonus for filling the Small bucket 🪣");   // fused tier-1 critter
+      addCritter(fam,kid.id,1,false,null,reveals,"Bonus for filling the Small pond 💧");   // fused tier-1 critter
       kid.buckets.m++;
       checkMedium(fam,kid,reveals);
     }
@@ -607,7 +607,7 @@
     if(kid.buckets.m>=cap){
       kid.buckets.m-=cap;
       grant(fam,kid,"medium");
-      addCritter(fam,kid.id,2,false,null,reveals,"Reward for filling the Medium bucket 🛢️");
+      addCritter(fam,kid.id,2,false,null,reveals,"Reward for filling the Medium pond 🌊");
       kid.choices=(kid.choices||0)+1;                // HYBRID: queue save-vs-keep
     }
   }
@@ -620,7 +620,7 @@
     if(kid.buckets.b>=cap){
       kid.buckets.b-=cap;
       grant(fam,kid,"big");
-      addCritter(fam,kid.id,3,false,null,reveals,"Showpiece for filling the Big bucket 🏆");   // showpiece
+      addCritter(fam,kid.id,3,false,null,reveals,"Showpiece for filling the Big pond 🪷");   // showpiece
     }
   }
 
@@ -735,6 +735,19 @@
     let dots="";for(let i=0;i<10;i++){const a=i/10*Math.PI*2;
       dots+=`<circle cx="${(50+30*Math.cos(a)).toFixed(1)}" cy="${(50+30*Math.sin(a)).toFixed(1)}" r="16" fill="hsl(${(i*36+10)%360},78%,66%)"/>`;}
     return `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}" style="vertical-align:-${Math.round(sz*0.15)}px">${dots}<circle cx="50" cy="50" r="26" fill="hsl(45,90%,70%)"/><circle cx="43" cy="44" r="7" fill="hsl(45,95%,85%)"/></svg>`;}
+  /* top-down pond icons for the three reward meters — grander as the tier goes up */
+  function pondTierIcon(tier){
+    const water=`<ellipse cx="50" cy="52" rx="45" ry="31" fill="#3E92B4"/>`+
+      `<ellipse cx="50" cy="49" rx="40" ry="26" fill="#5FB7C6"/>`+
+      `<ellipse cx="38" cy="38" rx="15" ry="6" fill="#cdf3ef" opacity=".6"/>`;
+    const pad=(cx,cy,r)=>`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#4FA86A"/><circle cx="${cx-r*0.32}" cy="${cy-r*0.32}" r="${r*0.5}" fill="#6cc188"/>`;
+    const lotus=(cx,cy)=>{let p='';for(let i=0;i<6;i++){const a=(i/6)*Math.PI*2;p+=`<circle cx="${(cx+7*Math.cos(a)).toFixed(1)}" cy="${(cy+7*Math.sin(a)).toFixed(1)}" r="4" fill="#FF9EC4"/>`;}return p+`<circle cx="${cx}" cy="${cy}" r="4.4" fill="#FFD86B"/>`;};
+    let extra='', rim='';
+    if(tier==="m") extra=pad(64,55,15);
+    if(tier==="b"){ extra=pad(28,62,11)+lotus(58,47)+`<circle cx="80" cy="42" r="2.4" fill="#fff"/><circle cx="22" cy="44" r="1.8" fill="#fff"/>`;
+      rim=`<ellipse cx="50" cy="52" rx="47" ry="33" fill="none" stroke="#F2B33B" stroke-width="3"/>`; }
+    return `<svg viewBox="0 0 100 100" width="46" height="40" style="display:block;margin:2px auto">${water}${extra}${rim}</svg>`;
+  }
 
   /* ============================================================
      ECONOMY WRAPPERS — local path is verbatim prototype behavior;
@@ -814,7 +827,7 @@
       <div class="setup-hero">
         <div class="setup-art">${["frog","duck","turtle"].map((a,i)=>`<div class="sa-c" style="animation-delay:${i*.5}s">${renderCritter("welcome:"+a,a,1)}</div>`).join("")}</div>
         <h1>Welcome to<br>Pom Pond! 🐸</h1>
-        <p>Kids do chores &amp; kind things, earn <b>Poms</b> ${pomIcon(18)}, hatch critters into their own pond, and fill buckets to unlock <b>rewards you choose</b>.</p>
+        <p>Kids do chores &amp; kind things, earn <b>Poms</b> ${pomIcon(18)}, hatch critters into their own pond, and fill <b>reward ponds</b> to unlock <b>rewards you choose</b>.</p>
       </div>
       <div class="setup-card">
         <div class="field"><label>Your family name</label><input id="sfn" maxlength="20" value="${esc(fam.name)}" placeholder="The Smiths"></div>
@@ -940,7 +953,7 @@
       <div class="label"><span>Do a chore</span><span class="ln"></span></div>
       <div class="chore-list" id="cl"></div>
       ${adultChores().length?`<div class="label"><span>Grown-ups are doing chores too 💪</span><span class="ln"></span></div><div class="rows" id="adultcl"></div>`:""}
-      <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Fill buckets for rewards!</div>`;
+      <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Fill your reward ponds for prizes!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
@@ -971,7 +984,7 @@
   }
   function bucketHTML(k,name,val,cap){
     const pct=Math.min(100,(val/cap)*100);
-    const ic=k==="s"?"🪣":k==="m"?"🛢️":"🏆";
+    const ic=pondTierIcon(k);
     return `<div class="bucket ${k}"><div class="bt">${name}</div><div class="bn">${ic}</div>
       <div class="frac">${val}/${cap}</div><div class="pbar"><i style="width:${pct}%"></i></div></div>`;
   }
@@ -1098,9 +1111,9 @@
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
   }
   function choiceModal(kid){
-    openSheet(`<div class="choice"><h3>Bucket full! 🛢️ Your choice…</h3>
+    openSheet(`<div class="choice"><h3>Pond full! 💧 Your choice…</h3>
       <button class="opt" data-c="save"><b>Save toward the BIG reward 🏆</b><span>Pour it up. Skip a medium win now for the big prize later.</span></button>
-      <button class="opt" data-c="keep"><b>Keep my medium win ✅</b><span>Enjoy it now. The big bucket waits.</span></button></div>`,sheet=>{
+      <button class="opt" data-c="keep"><b>Keep my medium win ✅</b><span>Enjoy it now. The big pond waits.</span></button></div>`,sheet=>{
       sheet.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{closeSheet();resolveChoice(kid,o.dataset.c==="save");});
     });
   }
@@ -1350,7 +1363,7 @@
     const st=fam.settings;
     openSheet(`<h3>Family settings</h3>
       <div class="field"><label>Family name</label><input id="fn" value="${esc(fam.name)}"></div>
-      <div class="field"><label>Bucket sizes (drops to fill)</label><div class="minrow">
+      <div class="field"><label>Pond sizes (drops to fill)</label><div class="minrow">
         <span style="font-weight:800;color:var(--soft);width:60px">Small</span><input id="cs" inputmode="numeric" value="${st.smallCap}" style="width:56px;text-align:center">
         <span style="font-weight:800;color:var(--soft);width:60px">Medium</span><input id="cm" inputmode="numeric" value="${st.medCap}" style="width:56px;text-align:center">
         <span style="font-weight:800;color:var(--soft);width:40px">Big</span><input id="cb" inputmode="numeric" value="${st.bigCap}" style="width:56px;text-align:center"></div></div>
