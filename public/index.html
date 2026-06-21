@@ -528,6 +528,54 @@
   // shared soft contact shadow
   function shadow(cx,cy,rx){return `<ellipse cx="${cx}" cy="${cy||90}" rx="${rx||26}" ry="5" fill="#000" opacity=".10"/>`;}
 
+  /* ============================================================
+     COMPOSABLE PARTS — build many NEW species from tiny data specs.
+     Used ONLY for new (appended) species; the 40 bespoke ones above are
+     untouched. Variety = shape × ears × tail × nose, combined with the
+     per-seed palette/pattern/eyes the trait system already provides.
+     ============================================================ */
+  function pEars(type,t,g,cx,ty,sp){const f=g.fill,ic=t.belly;
+    if(type==='round')return `<circle cx="${f1(cx-sp)}" cy="${ty}" r="6.2" fill="${f}"/><circle cx="${f1(cx+sp)}" cy="${ty}" r="6.2" fill="${f}"/><circle cx="${f1(cx-sp)}" cy="${f1(ty+1)}" r="3" fill="${ic}"/><circle cx="${f1(cx+sp)}" cy="${f1(ty+1)}" r="3" fill="${ic}"/>`;
+    if(type==='pointy')return `<path d="M${f1(cx-sp-3)} ${f1(ty+5)} l-1 -13 10 7z" fill="${f}"/><path d="M${f1(cx+sp+3)} ${f1(ty+5)} l1 -13 -10 7z" fill="${f}"/><path d="M${f1(cx-sp-1)} ${f1(ty+3)} l-1 -7 5 4z" fill="${ic}"/><path d="M${f1(cx+sp+1)} ${f1(ty+3)} l1 -7 -5 4z" fill="${ic}"/>`;
+    if(type==='long')return `<ellipse cx="${f1(cx-sp+2)}" cy="${f1(ty-9)}" rx="4.6" ry="15" fill="${f}"/><ellipse cx="${f1(cx+sp-2)}" cy="${f1(ty-9)}" rx="4.6" ry="15" fill="${f}"/><ellipse cx="${f1(cx-sp+2)}" cy="${f1(ty-8)}" rx="2.2" ry="10" fill="${ic}"/><ellipse cx="${f1(cx+sp-2)}" cy="${f1(ty-8)}" rx="2.2" ry="10" fill="${ic}"/>`;
+    if(type==='tuft')return `<path d="M${f1(cx-sp-1)} ${ty} l-2 -11 9 7z" fill="${f}"/><path d="M${f1(cx+sp+1)} ${ty} l2 -11 -9 7z" fill="${f}"/>`;
+    if(type==='floppy')return `<ellipse cx="${f1(cx-sp-3)}" cy="${f1(ty+6)}" rx="4.6" ry="10" fill="${f}" transform="rotate(22 ${f1(cx-sp-3)} ${f1(ty+6)})"/><ellipse cx="${f1(cx+sp+3)}" cy="${f1(ty+6)}" rx="4.6" ry="10" fill="${f}" transform="rotate(-22 ${f1(cx+sp+3)} ${f1(ty+6)})"/>`;
+    if(type==='horn')return `<path d="M${f1(cx-sp+1)} ${ty} l-1 -9 4 8z" fill="${t.bodyL}"/><path d="M${f1(cx+sp-1)} ${ty} l1 -9 -4 8z" fill="${t.bodyL}"/>`;
+    if(type==='fin')return `<path d="M${f1(cx-sp-1)} ${f1(ty+3)} q-8 -7 -1 -11 q4 4 5 10z" fill="${t.acc}" opacity=".85"/><path d="M${f1(cx+sp+1)} ${f1(ty+3)} q8 -7 1 -11 q-4 4 -5 10z" fill="${t.acc}" opacity=".85"/>`;
+    return '';}
+  function pTail(type,t,g){
+    if(type==='fluffy')return `<ellipse cx="74" cy="71" rx="10" ry="9" fill="${g.fill}"/><ellipse cx="76" cy="71" rx="5" ry="5" fill="${t.belly}" opacity=".7"/>`;
+    if(type==='thin')return `<path d="M68 73 q16 2 13 -11" stroke="${g.fill}" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
+    if(type==='curl')return `<path d="M69 71 q15 0 12 -9 q-1 -6 -7 -3" stroke="${g.fill}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+    if(type==='fin')return `<path d="M68 64 l20 -11 0 24z" fill="${t.acc}"/>`;
+    if(type==='puff')return `<circle cx="72" cy="73" r="6" fill="#fff" opacity=".92"/>`;
+    return '';}
+  function pNose(type,t,nx,ny){
+    if(type==='dot')return `<ellipse cx="${nx}" cy="${ny}" rx="2.3" ry="1.7" fill="#2c2622"/>`;
+    if(type==='snout')return `<ellipse cx="${nx}" cy="${f1(ny+1)}" rx="6" ry="4.5" fill="${t.belly}"/><ellipse cx="${nx}" cy="${ny}" rx="2.1" ry="1.5" fill="#2c2622"/>`;
+    if(type==='beak')return `<path d="M${nx} ${f1(ny-1)} l-4 5 8 0z" fill="hsl(35,85%,55%)"/>`;
+    if(type==='button')return `<circle cx="${nx}" cy="${ny}" r="2" fill="hsl(330,62%,66%)"/>`;
+    return '';}
+  function compose(t,s){s=s||{};const g=bodyGrad(t),o=[`<defs>${g.def}</defs>`];let accY=22;const sh=s.shape||'std';
+    if(sh==='round'){o.push(shadow(50,88,22),pTail(s.tail,t,g),`<circle cx="50" cy="55" r="24" fill="${g.fill}"/>`);
+      if(s.belly)o.push(`<ellipse cx="50" cy="62" rx="13" ry="12" fill="${t.belly}"/>`);
+      o.push(mark(t,50,58,0.9),pEars(s.ears,t,g,50,33,13));accY=18;
+      o.push(eyes(t,43,57,52,s.eyeSz||0.9),pNose(s.nose,t,50,60),smile(50,64,3.5),blush(t,37,63,60));
+    }else if(sh==='tall'){o.push(shadow(50,88,17),pTail(s.tail,t,g),`<ellipse cx="50" cy="58" rx="17" ry="26" fill="${g.fill}"/>`);
+      if(s.belly)o.push(`<ellipse cx="50" cy="64" rx="9" ry="16" fill="${t.belly}"/>`);
+      o.push(mark(t,50,58,0.85),pEars(s.ears,t,g,50,34,11));accY=17;
+      o.push(eyes(t,44,56,48,s.eyeSz||0.85),pNose(s.nose,t,50,55),smile(50,60,3.5),blush(t,40,60,57));
+    }else if(sh==='wide'){o.push(shadow(50,86,26),pTail(s.tail,t,g),`<ellipse cx="50" cy="62" rx="26" ry="17" fill="${g.fill}"/>`);
+      if(s.belly)o.push(`<ellipse cx="50" cy="66" rx="14" ry="9" fill="${t.belly}"/>`);
+      o.push(mark(t,50,60,0.9),pEars(s.ears,t,g,50,48,16));accY=30;
+      o.push(eyes(t,42,58,58,s.eyeSz||0.85),pNose(s.nose,t,50,64),smile(50,68,4),blush(t,36,64,63));
+    }else{o.push(shadow(50,88,22),pTail(s.tail,t,g),`<ellipse cx="50" cy="70" rx="19" ry="14" fill="${g.fill}"/>`);
+      if(s.belly)o.push(`<ellipse cx="50" cy="73" rx="10" ry="9" fill="${t.belly}"/>`);
+      o.push(mark(t,50,70,0.85),`<circle cx="50" cy="47" r="16" fill="${g.fill}"/>`,pEars(s.ears,t,g,50,33,11));accY=22;
+      o.push(eyes(t,43,57,47,s.eyeSz||0.85),pNose(s.nose,t,50,53),smile(50,56,3.8),blush(t,37,63,53));
+    }
+    return [o.join(''),50,accY];}
+
   const ARCH={
     // -------- original keys (kept; restyled) --------
     frog(t){const g=bodyGrad(t);return [`<defs>${g.def}</defs>${shadow(50,88,28)}<ellipse cx="50" cy="64" rx="30" ry="23" fill="${g.fill}"/><ellipse cx="50" cy="72" rx="17" ry="11" fill="${t.belly}"/>${mark(t,50,62,1)}<circle cx="35" cy="39" r="11" fill="${g.fill}"/><circle cx="65" cy="39" r="11" fill="${g.fill}"/><circle cx="35" cy="38" r="6.5" fill="#fff"/><circle cx="65" cy="38" r="6.5" fill="#fff"/>${eyes(t,35,65,39,1)}${smile(50,56,5)}${blush(t,30,70,58)}`,50,28];},
@@ -574,9 +622,54 @@
     swan(t){return [`${shadow(50,90,22)}<ellipse cx="46" cy="64" rx="24" ry="14" fill="#fff"/><ellipse cx="46" cy="64" rx="24" ry="14" fill="hsl(${t.hue},30%,70%)" opacity=".18"/><path d="M64 60 q14 -2 14 -22 q0 -10 -6 -10 q-5 0 -5 8 q0 14 -8 18z" fill="#fff" stroke="hsl(${t.hue},20%,82%)" stroke-width="0.6"/><path d="M66 30 l-9 2 8 4z" fill="hsl(20,85%,58%)"/><circle cx="68" cy="32" r="2.6" fill="#2c2622"/><path d="M28 60 q-8 6 -14 4" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>${blush(t,60,72,36)}`,50,16];}
   };
 
+  /* ---- NEW species as data rows (composed). Appended AFTER the 40 bespoke ones,
+     so KEYS order is preserved and existing renders never change. Scale freely:
+     each new critter is just one line. ---- */
+  const SPECIES2={
+    pup:{shape:'std',ears:'floppy',tail:'fluffy',nose:'snout',belly:true},
+    kitten:{shape:'std',ears:'pointy',tail:'thin',nose:'dot'},
+    cub:{shape:'round',ears:'round',nose:'dot',belly:true},
+    wolfie:{shape:'std',ears:'pointy',tail:'fluffy',nose:'snout'},
+    ferret:{shape:'std',ears:'round',tail:'thin',nose:'dot',belly:true},
+    squirrel:{shape:'std',ears:'tuft',tail:'fluffy',nose:'dot'},
+    corgi:{shape:'std',ears:'pointy',tail:'puff',nose:'snout',belly:true},
+    husky:{shape:'std',ears:'pointy',tail:'curl',nose:'snout'},
+    lynx:{shape:'round',ears:'tuft',tail:'puff',nose:'dot'},
+    deerling:{shape:'std',ears:'long',tail:'puff',nose:'dot',eyeSz:0.9},
+    joey:{shape:'tall',ears:'round',tail:'thin',nose:'dot',belly:true},
+    lamb:{shape:'round',ears:'floppy',tail:'puff',nose:'button',belly:true},
+    piglet:{shape:'round',ears:'pointy',tail:'curl',nose:'snout',belly:true},
+    calf:{shape:'std',ears:'floppy',tail:'thin',nose:'snout',belly:true},
+    pony:{shape:'std',ears:'pointy',tail:'fluffy',nose:'snout'},
+    kidgoat:{shape:'std',ears:'horn',tail:'thin',nose:'dot'},
+    puffball:{shape:'round',ears:'none',tail:'none',nose:'dot'},
+    fuzzling:{shape:'round',ears:'tuft',tail:'none',nose:'button',belly:true},
+    mossling:{shape:'round',ears:'horn',tail:'none',nose:'dot'},
+    pebbling:{shape:'wide',ears:'none',tail:'none',nose:'dot'},
+    chinchi:{shape:'round',ears:'round',tail:'fluffy',nose:'button',belly:true},
+    batling:{shape:'round',ears:'pointy',tail:'none',nose:'button'},
+    sproutkin:{shape:'tall',ears:'horn',tail:'none',nose:'dot',belly:true},
+    totem:{shape:'tall',ears:'tuft',tail:'none',nose:'dot'},
+    owlet:{shape:'tall',ears:'tuft',tail:'none',nose:'beak',eyeSz:1},
+    birdie:{shape:'round',ears:'none',tail:'fin',nose:'beak'},
+    robin:{shape:'std',ears:'none',tail:'thin',nose:'beak',belly:true},
+    chickling:{shape:'round',ears:'none',tail:'puff',nose:'beak'},
+    finling:{shape:'wide',ears:'fin',tail:'fin',nose:'none',eyeSz:0.8},
+    guppy:{shape:'wide',ears:'fin',tail:'fin',nose:'none'},
+    splash:{shape:'round',ears:'fin',tail:'fin',nose:'dot'},
+    tortie:{shape:'wide',ears:'none',tail:'none',nose:'dot',belly:true},
+    gecko2:{shape:'wide',ears:'none',tail:'curl',nose:'dot'},
+    moleling:{shape:'round',ears:'none',tail:'thin',nose:'snout'},
+    possum:{shape:'std',ears:'round',tail:'thin',nose:'snout'},
+    sugarglide:{shape:'round',ears:'round',tail:'fluffy',nose:'button',belly:true}
+  };
+  Object.keys(SPECIES2).forEach(k=>{ const sp=SPECIES2[k]; ARCH[k]=(t)=>compose(t,sp); });
+
   const NAMES={
     koi:'Koi', axolotl:'Axolotl', hummingbird:'Hummingbird', dragonfly:'Dragonfly',
-    octopus:'Octopus', seahorse:'Seahorse', starfish:'Starfish', jellyfish:'Jellyfish'
+    octopus:'Octopus', seahorse:'Seahorse', starfish:'Starfish', jellyfish:'Jellyfish',
+    kidgoat:'Kid Goat', gecko2:'Gecko', tortie:'Tortoise', sugarglide:'Sugar Glider',
+    fuzzling:'Fuzzling', mossling:'Mossling', pebbling:'Pebbling', sproutkin:'Sproutkin'
   };
 
   const KEYS=Object.keys(ARCH);
