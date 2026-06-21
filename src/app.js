@@ -502,7 +502,10 @@
   // Kid taps their Pom count → a plain-language history of what each Pom was for.
   function palmHistory(kid){
     const mine=fam.log.filter(e=>e.ownerId===kid.id);
-    const rows=mine.length?mine.map(e=>{
+    let rows="", lastDay=null;
+    if(mine.length) mine.forEach(e=>{   // log is newest-first → group consecutive same-day entries under a date header
+      const dk=dayKey(e.at);
+      if(dk!==lastDay){ lastDay=dk; rows+=`<div class="dayhdr">${esc(dayLabel(e.at))}</div>`; }
       const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":e.type==="combine"?"🧬":"✅";
       const txt=e.type==="kindness"?("A kind thing"+(e.note?" — "+esc(e.note):""))
         :e.type==="school"?("School"+(e.note?" — "+esc(e.note):""))
@@ -510,8 +513,9 @@
         :e.type==="combine"?(e.note?esc(e.note):"Fused critters")
         :(e.note?esc(e.note):"Did a chore");
       const tag=e.type==="redeem"?'<span class="pminus">spent</span>':e.type==="combine"?'<span class="pminus">fused</span>':`<span class="pplus">+1 ${pomIcon(12)}</span>`;
-      return `<div class="actrow"><span>${ic}</span><span class="grow">${txt}</span>${tag}<span class="ago">${ago(e.at)}</span></div>`;
-    }).join(""):`<p style="font-weight:700;color:var(--soft);text-align:center;padding:20px 0">No ${esc(cnames())} yet —<br>do a chore to earn your first one! 🐣</p>`;
+      rows+=`<div class="actrow"><span>${ic}</span><span class="grow">${txt}</span>${tag}<span class="ago">${esc(clockTime(e.at))}</span></div>`;
+    });
+    else rows=`<p style="font-weight:700;color:var(--soft);text-align:center;padding:20px 0">No ${esc(cnames())} yet —<br>do a chore to earn your first one! 🐣</p>`;
     openSheet(`<h3>My ${esc(cnames())} ${pomIcon(18)}</h3>
       <p style="font-weight:700;color:var(--soft);font-size:13px;margin-top:-6px">${kid.palms||0} earned in total${kid.streak?` · 🔥 ${kid.streak}-day streak`:""}</p>
       <div class="actlog" style="max-height:48vh;overflow:auto;margin-bottom:14px">${rows}</div>
@@ -687,15 +691,26 @@
       row.querySelector(".mini:not(.ghost)").onclick=()=>{fam.rewards=fam.rewards.filter(x=>x.id!==r.id);save();render();};
       rr.appendChild(row);});
 
-    if(fam.log.length){const al=app.querySelector("#actlog");
-      fam.log.slice(0,8).forEach(e=>{const kid=member(e.ownerId);
+    if(fam.log.length){const al=app.querySelector("#actlog"); let lastDay=null;
+      fam.log.slice(0,14).forEach(e=>{const kid=member(e.ownerId);
+        const dk=dayKey(e.at);
+        if(dk!==lastDay){ lastDay=dk; const h=document.createElement("div");h.className="dayhdr";h.textContent=dayLabel(e.at);al.appendChild(h); }
         const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":e.type==="combine"?"🧬":pomIcon(15);
         const txt=e.type==="kindness"?("Kindness "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="school"?("School "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="redeem"?("Redeemed "+esc(e.note||"a reward")):e.type==="combine"?("Fused critters"+(e.note?" — "+esc(e.note):"")):"Did a chore";
         const li=document.createElement("div");li.className="actrow";
-        li.innerHTML=`<span>${ic}</span><span class="grow"><b>${kid?esc(kid.name):"?"}</b> · ${txt}</span><span class="ago">${ago(e.at)}</span>`;
+        li.innerHTML=`<span>${ic}</span><span class="grow"><b>${kid?esc(kid.name):"?"}</b> · ${txt}</span><span class="ago">${esc(clockTime(e.at))}</span>`;
         al.appendChild(li);});}
   }
   function ago(ts){const s=Math.floor((Date.now()-ts)/1000);if(s<60)return"now";if(s<3600)return Math.floor(s/60)+"m";if(s<86400)return Math.floor(s/3600)+"h";return Math.floor(s/86400)+"d";}
+  // History is grouped by day with a date header; each row shows the clock time.
+  function dayKey(ts){const d=new Date(ts);return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate();}
+  function ord(n){const v=n%100,s=["th","st","nd","rd"];return n+(s[(v-20)%10]||s[v]||s[0]);}
+  function dayLabel(ts){const d=new Date(ts),now=new Date();
+    if(dayKey(ts)===dayKey(now.getTime()))return"Today";
+    if(dayKey(ts)===dayKey(now.getTime()-864e5))return"Yesterday";
+    const base=d.toLocaleDateString(undefined,{month:"long"})+" "+ord(d.getDate());
+    return d.getFullYear()!==now.getFullYear()?base+", "+d.getFullYear():base;}
+  function clockTime(ts){return new Date(ts).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});}
 
   function kindnessSheet(kid){
     let src="kindness";

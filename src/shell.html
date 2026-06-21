@@ -279,7 +279,9 @@
   .actlog{display:flex;flex-direction:column;gap:7px}
   .actrow{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:13px;padding:9px 13px;box-shadow:0 6px 14px -10px rgba(30,80,75,.3);font-size:14px;font-weight:700;color:var(--ink)}
   .actrow .grow{flex:1}
-  .actrow .ago{color:var(--soft);font-size:12px}
+  .actrow .ago{color:var(--soft);font-size:12px;white-space:nowrap}
+  .dayhdr{font-weight:800;font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;margin:10px 2px 2px;padding-top:8px;border-top:1px solid rgba(20,60,55,.1)}
+  .dayhdr:first-child{border-top:none;padding-top:0;margin-top:0}
 
   /* setup wizard */
   .setup-hero{text-align:center;padding:18px 6px 6px}
