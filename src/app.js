@@ -644,6 +644,72 @@
   function closeSheet(){scrim.classList.remove("show");}
   scrim.onclick=e=>{if(e.target===scrim)closeSheet();};
 
+  /* ============================================================
+     EMOJI PICKER — full library, standard category tabs + search,
+     multi-select (up to `max`). Layers ABOVE the open sheet so the
+     form underneath keeps its state; calls onDone(arrayOfEmoji).
+     ============================================================ */
+  function openEmojiPicker(initial,max,onDone){
+    max=max||3;
+    const DATA=(typeof EMOJI_DATA!=="undefined"&&EMOJI_DATA)||{order:[],groups:{}};
+    let selected=(initial||[]).filter(Boolean).slice(0,max);
+    const groupOf=(em)=>DATA.order.find(g=>DATA.groups[g].items.some(it=>it[0]===em));
+    let active=(selected[0]&&groupOf(selected[0]))||(DATA.groups.objects?"objects":DATA.order[0])||"";
+    let query="";
+
+    const wrap=document.createElement("div"); wrap.className="epscrim";
+    wrap.innerHTML=`<div class="epcard">
+      <div class="ephead"><b>Chore icons</b><span class="ephint" id="ephint"></span></div>
+      <div class="epchips" id="epchips"></div>
+      <input class="epsearch" id="epsearch" placeholder="Search emojis…  (broom, dog, plant…)" autocomplete="off">
+      <div class="eptabs" id="eptabs"></div>
+      <div class="epgrid" id="epgrid"></div>
+      <div class="sa"><button class="cancel" id="epcancel">Cancel</button><button class="save" id="epdone">Done</button></div>
+    </div>`;
+    document.body.appendChild(wrap);
+    const $=(s)=>wrap.querySelector(s);
+    const tabs=$("#eptabs"),grid=$("#epgrid"),chips=$("#epchips"),hint=$("#ephint"),done=$("#epdone"),search=$("#epsearch");
+
+    tabs.innerHTML=DATA.order.map(g=>`<button class="eptab" data-g="${g}" title="${esc(DATA.groups[g].label)}">${DATA.groups[g].icon}</button>`).join("");
+
+    const renderChips=()=>{
+      chips.innerHTML=selected.length
+        ? selected.map(e=>`<button class="epchip" data-rm="${e}">${e}<span>×</span></button>`).join("")
+        : `<span class="epempty">No icons yet — tap some below</span>`;
+      hint.textContent=`${selected.length}/${max} chosen`;
+      done.disabled=selected.length===0;
+    };
+    const matches=()=>{
+      if(query){ const out=[]; for(const g of DATA.order){ for(const it of DATA.groups[g].items){
+        if(it[1].indexOf(query)>=0){ out.push(it); if(out.length>=250) return out; } } } return out; }
+      return (DATA.groups[active]||{items:[]}).items;
+    };
+    const renderGrid=()=>{
+      tabs.querySelectorAll(".eptab").forEach(t=>t.classList.toggle("on",!query&&t.dataset.g===active));
+      const items=matches();
+      grid.innerHTML=items.length
+        ? items.map(it=>`<button class="epe${selected.includes(it[0])?" on":""}" data-e="${it[0]}" title="${esc(it[1])}">${it[0]}</button>`).join("")
+        : `<div class="epnone">No emojis match “${esc(query)}”.</div>`;
+    };
+    const refresh=()=>{ renderChips(); renderGrid(); };
+    const toggle=(em)=>{
+      const i=selected.indexOf(em);
+      if(i>=0) selected.splice(i,1);
+      else if(selected.length<max) selected.push(em);
+      else { hint.textContent=`Up to ${max} — remove one first`; hint.classList.add("warn"); setTimeout(()=>hint.classList.remove("warn"),900); return; }
+      refresh();
+    };
+    tabs.onclick=e=>{const b=e.target.closest(".eptab"); if(!b)return; active=b.dataset.g; query=""; search.value=""; renderGrid(); grid.scrollTop=0;};
+    grid.onclick=e=>{const b=e.target.closest(".epe"); if(b)toggle(b.dataset.e);};
+    chips.onclick=e=>{const b=e.target.closest(".epchip"); if(b)toggle(b.dataset.rm);};
+    search.oninput=()=>{ query=search.value.trim().toLowerCase(); renderGrid(); grid.scrollTop=0; };
+    const close=()=>wrap.remove();
+    $("#epcancel").onclick=close;
+    wrap.onclick=e=>{ if(e.target===wrap) close(); };
+    done.onclick=()=>{ const out=selected.slice(); close(); onDone(out); };
+    refresh();
+  }
+
   function kidSheet(kid){
     const isNew=!kid;
     const d=kid?{...kid}:{id:id(),name:"",role:"child",emoji:freeEmoji(),color:freeColor(),palms:0,buckets:{s:0,m:0,b:0},choices:0,streak:0,lastActive:null};
@@ -667,27 +733,32 @@
     const isNew=!ch;
     const d=ch?{...ch}:{id:id(),name:"",emoji:C_EMOJI[Math.floor(Math.random()*C_EMOJI.length)],secs:300,palm:1,assignedTo:null};
     let mins=Math.floor(d.secs/60),secs=d.secs%60;
+    let icons=(d.emoji||"").split(" ").filter(Boolean).slice(0,3);   // up to 3 emojis make the chore's icon
     const adults=members().filter(m=>m.role==="parent");
     const kidOpts=`<option value="">Anyone (kids)</option>`
       +`<optgroup label="Kids">`+kids().map(k=>`<option value="${k.id}" ${d.assignedTo===k.id?"selected":""}>🧒 ${esc(k.name)}</option>`).join("")+`</optgroup>`
       +(adults.length?`<optgroup label="Grown-ups (just for show — no Poms)">`+adults.map(a=>`<option value="${a.id}" ${d.assignedTo===a.id?"selected":""}>🧑 ${esc(a.name)}</option>`).join("")+`</optgroup>`:"");
     openSheet(`<h3>${isNew?"New chore":"Edit chore"}</h3>
       <div class="field"><label>Name</label><input id="cn" maxlength="20" value="${esc(d.name)}" placeholder="Chore name"></div>
-      <div class="field"><label>Icon</label><div class="emo-grid" id="ce"></div></div>
+      <div class="field"><label>Icons <span style="text-transform:none;font-weight:700">— pick up to 3</span></label>
+        <button type="button" class="iconpick" id="cipick"><span class="ipprev" id="ciprev"></span><span class="ipgo">Tap to choose…</span></button></div>
       <div class="field"><label>Timer</label><div class="minrow">
         <button class="stepper" id="mm">−</button><input id="cmin" inputmode="numeric" value="${mins}" style="width:60px;text-align:center">
         <button class="stepper" id="mp">+</button><span style="font-weight:800;color:var(--soft)">min</span>
         <input id="csec" inputmode="numeric" value="${secs}" style="width:60px;text-align:center"><span style="font-weight:800;color:var(--soft)">sec</span></div></div>
       <div class="field"><label>Assigned to</label><select id="cas">${kidOpts}</select></div>
       <div class="sa"><button class="cancel">Cancel</button><button class="save">${isNew?"Add":"Save"}</button></div>`,s=>{
-      const eg=s.querySelector("#ce");C_EMOJI.forEach(em=>{const b=document.createElement("button");b.textContent=em;if(em===d.emoji)b.classList.add("pick");
-        b.onclick=()=>{d.emoji=em;eg.querySelectorAll("button").forEach(x=>x.classList.remove("pick"));b.classList.add("pick");};eg.appendChild(b);});
+      const prev=s.querySelector("#ciprev");
+      const drawPrev=()=>{ prev.innerHTML=icons.length?icons.map(e=>`<span>${e}</span>`).join(""):`<span class="ipph">＋</span>`; };
+      drawPrev();
+      s.querySelector("#cipick").onclick=()=>openEmojiPicker(icons,3,arr=>{ icons=arr; drawPrev(); });
       const min=s.querySelector("#cmin");
       s.querySelector("#mm").onclick=()=>min.value=Math.max(0,(parseInt(min.value,10)||0)-1);
       s.querySelector("#mp").onclick=()=>min.value=(parseInt(min.value,10)||0)+1;
       s.querySelector(".cancel").onclick=closeSheet;
       s.querySelector(".save").onclick=()=>{const m=parseInt(min.value,10)||0,sc=parseInt(s.querySelector("#csec").value,10)||0;
         d.secs=Math.max(5,m*60+sc);d.name=s.querySelector("#cn").value.trim()||"Chore";d.assignedTo=s.querySelector("#cas").value||null;
+        d.emoji=icons.join(" ")||"✅";
         if(isNew)fam.chores.push(d);else Object.assign(ch,d);save();closeSheet();render();};
       setTimeout(()=>{const el=s.querySelector("#cn");if(el)el.focus();},60);
     });
