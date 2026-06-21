@@ -334,7 +334,7 @@
     const ready=invOf(kid.id).filter(i=>i.status==="ready");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>${esc(fam.name)}</h1></div>
-        <span>${showInstall()?'<button class="iconbtn go" id="install">📲</button> ':''}<button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
+        <span>${showInstall()?'<button class="iconbtn go" id="install">📲</button> ':''}<button class="iconbtn" id="climb">🧗</button> <button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
       <div class="me" style="--kc:${kid.color}">
         <div class="disc">${kid.emoji}</div>
         <div class="info"><h2>${esc(kid.name)}'s Pond</h2>
@@ -355,6 +355,7 @@
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Drag critters to move them, tap to see what they're for!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";combineMode=false;combineSel=[];render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
+    const clb=app.querySelector("#climb"); if(clb)clb.onclick=()=>climbModal(kid);
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
     const kib=app.querySelector("#install"); if(kib)kib.onclick=doInstall;
     const cbtn=app.querySelector("#combineBtn"); if(cbtn)cbtn.onclick=()=>{ combineMode=true; combineSel=[]; render(); };
@@ -623,6 +624,38 @@
       });
     }
     paint();
+  }
+  // 🧗 The Climb — browse the evolution ladder, see where you are + what to mix to climb.
+  function climbModal(kid){
+    const mine=crittersOf(kid.id), byTier={};
+    mine.forEach(c=>{const t=c.tier||0;(byTier[t]=byTier[t]||[]).push(c);});
+    const highest=mine.reduce((m,c)=>Math.max(m,c.tier||0),0);
+    const TIERS=Evolution.TIERS, MAX=TIERS.length-1;
+    const canMix=(byTier[highest]||[]).length>=2;
+    let rows="";
+    for(let t=MAX;t>=0;t--){
+      const owned=byTier[t]||[], name=esc(Evolution.tierName(t));
+      let cls="climbrung", art, info;
+      if(owned.length){
+        const best=owned.reduce((a,b)=>(b.rarity||0)>(a.rarity||0)?b:a);
+        art=`<div class="cart">${renderCritter(best.seed,best.archetype,best.rarity)}</div>`;
+        info=`<div class="cname">${name}${t===highest?' <span class="chere">you\'re here</span>':''}</div><div class="csub">${owned.length} critter${owned.length>1?"s":""} here</div>`;
+      } else if(t===highest+1){
+        cls+=" next"; art=`<div class="cart climbico">✨</div>`;
+        info=`<div class="cname">${name}</div><div class="csub">Mix two ${esc(Evolution.tierName(highest))} critters to reach it${canMix?" — you can now! 🎉":""}</div>`;
+      } else {
+        cls+=" locked"; art=`<div class="cart climbico">🔒</div>`;
+        info=`<div class="cname">${name}</div><div class="csub">Keep climbing!</div>`;
+      }
+      rows+=`<div class="${cls}"><div class="ctier">${t+1}</div>${art}<div class="cinfo">${info}</div></div>`;
+    }
+    openSheet(`<h3>🧗 The Climb</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-8px 0 10px">Highest: <b style="color:var(--accent)">${esc(Evolution.tierName(highest))}</b> · ${highest+1}/${MAX+1} tiers — mix critters to climb higher!</p>
+      <div class="climb">${rows}</div>
+      <div class="sa"><button class="cancel">Close</button>${mine.length>=2?'<button class="save" id="climbmix">✨ Mix critters</button>':""}</div>`,s=>{
+      s.querySelector(".cancel").onclick=closeSheet;
+      const cm=s.querySelector("#climbmix"); if(cm)cm.onclick=()=>{ closeSheet(); combineMode=true; combineSel=[]; render(); };
+    });
   }
   function choiceModal(kid){
     openSheet(`<div class="choice"><h3>Pond full! 💧 Your choice…</h3>
