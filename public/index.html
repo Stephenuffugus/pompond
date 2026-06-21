@@ -147,6 +147,8 @@
     cursor:grab;touch-action:none;filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
   .critter.dragging{animation:none;z-index:6;cursor:grabbing;filter:drop-shadow(0 12px 9px rgba(0,40,40,.4))}
   .critter.csel{animation:none;z-index:5;border-radius:50%;box-shadow:0 0 0 4px #fff,0 0 0 8px var(--accent)}
+  .critter.klock{opacity:.4;filter:grayscale(.6) drop-shadow(0 5px 4px rgba(0,40,40,.28))}
+  .critter .keepbadge{position:absolute;top:-4px;right:-2px;font-size:15px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3));pointer-events:none}
   /* 🧬 combine */
   .combinebtn{border:none;background:rgba(63,167,161,.16);color:var(--accent);font-weight:800;font-size:13px;border-radius:999px;padding:5px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .combinebar{display:flex;align-items:center;gap:10px;background:#eafaf8;border:2px solid var(--accent);border-radius:16px;padding:10px 12px;margin-top:10px;font-weight:800;color:var(--ink);font-size:14px}
@@ -156,6 +158,14 @@
   .combinebar #combineGo{background:var(--accent);color:#fff}
   .combinebar #combineGo:disabled{opacity:.45;cursor:default}
   .combinebar #combineCancel{background:#fff;color:var(--soft)}
+  .combinebar{flex-direction:column;align-items:stretch;gap:8px}
+  .combinebar .cbtop{display:flex;align-items:center;gap:10px}
+  .combinebar #combinemsg{flex:1}
+  .cbprev{display:flex;align-items:center;justify-content:center;gap:10px;min-height:0}
+  .cbprev:not(:empty){min-height:66px}
+  .cbprev .cbarrow{font-size:22px;color:var(--accent);font-weight:900}
+  .cbprev .cbchild{width:60px;height:60px;animation:pop .25s ease}
+  .cbprev .cbname{font-weight:800;font-size:13px;color:var(--ink);text-align:left}
   .critter::after{content:"";position:absolute;left:14%;right:14%;bottom:-7px;height:8px;border-radius:50%;
     background:rgba(6,40,56,.28);filter:blur(2px)}
   @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
@@ -902,7 +912,10 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
   // (rules deny it), and a critter's spot is cosmetic, not shared family data.
   let critterPos=(()=>{ try{ return JSON.parse(localStorage.getItem("pp_critterpos")||"{}")||{}; }catch(e){ return {}; } })();
   function saveCritterPos(){ try{ localStorage.setItem("pp_critterpos",JSON.stringify(critterPos)); }catch(e){} }
-  let combineMode=false, combineSel=[];   // 🧬 fusion: select-and-combine state (kid view)
+  // "Keepers" — critters the kid hearts to protect from mixing (per-device pref).
+  let critterKeep=(()=>{ try{ return JSON.parse(localStorage.getItem("pp_critterkeep")||"{}")||{}; }catch(e){ return {}; } })();
+  function saveCritterKeep(){ try{ localStorage.setItem("pp_critterkeep",JSON.stringify(critterKeep)); }catch(e){} }
+  let combineMode=false, combineSel=[];   // ✨ Mix: select-and-combine state (kid view)
   const today=()=>Economy.today();
   const isDoneToday=(kid,chore)=>Economy.isDoneToday(fam,kid,chore);
 
@@ -951,7 +964,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
   }
   function showReveal(c,cb){
     const ov=document.getElementById("reveal");
-    const label=c.special?(c.tag==="combo"?"🧬 New Fusion!":CATMAP[c.tag]?CATMAP[c.tag].emoji+" "+CATMAP[c.tag].name+"!":"✨ Bonus Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
+    const label=c.special?(c.tag==="combo"?"✨ New Mix!":CATMAP[c.tag]?CATMAP[c.tag].emoji+" "+CATMAP[c.tag].name+"!":"✨ Bonus Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
     ov.innerHTML=`<div class="reveal-card"><div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity)}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
     ov.classList.add("show"); confetti(); beep(c.rarity>=2||c.special);
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
@@ -1106,8 +1119,8 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
         ${bucketHTML("b","Big",kid.buckets.b,cap.bigCap)}
       </div>
       ${ready.length?`<div class="label"><span>Rewards to spend 🎉</span><span class="ln"></span></div><div class="tokens" id="tok"></div>`:""}
-      <div class="label"><span>My Pond</span><span class="ln"></span>${(!combineMode&&crittersOf(kid.id).length>=2)?`<button class="combinebtn" id="combineBtn">🧬 Combine</button>`:""}</div>
-      ${combineMode?`<div class="combinebar"><span id="combinemsg">Tap 2–3 critters to fuse ✨</span><span class="cbtns"><button id="combineCancel">Cancel</button><button id="combineGo" disabled>Fuse</button></span></div>`:""}
+      <div class="label"><span>My Pond</span><span class="ln"></span>${(!combineMode&&crittersOf(kid.id).length>=2)?`<button class="combinebtn" id="combineBtn">✨ Mix!</button>`:""}</div>
+      ${combineMode?`<div class="combinebar"><div class="cbtop"><span id="combinemsg">Tap 2–3 critters to mix ✨</span><span class="cbtns"><button id="combineCancel">Cancel</button><button id="combineGo" disabled>Mix</button></span></div><div class="cbprev" id="combineprev"></div></div>`:""}
       <div class="pond" id="pond"></div>
       <div class="label"><span>Do a chore</span><span class="ln"></span></div>
       <div class="chore-list" id="cl"></div>
@@ -1184,7 +1197,8 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       w.style.animationDelay=(i%6)*0.4+"s";
       w.style.transform=`scale(${1+c.rarity*0.12})`;
       w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity);
-      if(combineMode&&combineSel.includes(c.id))w.classList.add("csel");
+      if(critterKeep[c.id]){ w.classList.add("kept"); w.insertAdjacentHTML("beforeend",'<span class="keepbadge">❤️</span>'); }
+      if(combineMode){ if(combineSel.includes(c.id))w.classList.add("csel"); else if(critterKeep[c.id])w.classList.add("klock"); }
       makeCritterDraggable(w,c,pond);
       stage.appendChild(w);});
     pond.appendChild(stage);
@@ -1227,22 +1241,31 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       window.addEventListener("pointercancel",up);
     };
     w.onclick=()=>{
-      if(combineMode){ toggleCombineSel(c.id,w); return; }
+      if(combineMode){ if(critterKeep[c.id]){ inspectCritter(c); return; } toggleCombineSel(c.id,w); return; }   // kept → open sheet to unkeep
       if(w._dragged){ w._dragged=false; return; } if(pond._ppDragged) return; inspectCritter(c);
     };
   }
   function toggleCombineSel(id,el){
+    if(critterKeep[id]){ toast("❤️ Kept safe — tap it to allow mixing"); return; }
     const i=combineSel.indexOf(id);
     if(i>=0){ combineSel.splice(i,1); el&&el.classList.remove("csel"); }
     else if(combineSel.length<3){ combineSel.push(id); el&&el.classList.add("csel"); }
-    else { toast("Up to 3 — tap one to deselect"); return; }
+    else { toast("Up to 3 — tap one to take it out"); return; }
     updateCombineBar();
   }
+  // Live preview: show the exact critter the selection will become BEFORE confirming
+  // (deterministic via Economy.makeCombo — matches the server result). Big for kids.
   function updateCombineBar(){
-    const msg=document.getElementById("combinemsg"), go=document.getElementById("combineGo");
+    const msg=document.getElementById("combinemsg"), go=document.getElementById("combineGo"), prev=document.getElementById("combineprev");
     const n=combineSel.length;
-    if(msg) msg.textContent = n===0?"Tap 2–3 critters to fuse ✨" : n===1?"Pick at least 1 more…" : n+" selected — ready to fuse!";
-    if(go){ go.disabled=n<2; go.textContent = n>=2?("Fuse "+n+" →"):"Fuse"; }
+    if(msg) msg.textContent = n===0?"Tap 2–3 critters to mix ✨" : n===1?"Pick at least 1 more…" : "Mix these into…";
+    if(prev){
+      if(n>=2){ const parents=combineSel.map(id=>fam.critters.find(c=>c.id===id)).filter(Boolean);
+        const child=Economy.makeCombo(parents);
+        prev.innerHTML=`<span class="cbarrow">→</span><div class="cbchild">${renderCritter(child.seed,child.archetype,child.rarity)}</div><span class="cbname">${CritterEngine.name(child.archetype)}<br><b>${CritterEngine.rarityName(child.rarity)}</b></span>`;
+      } else prev.innerHTML="";
+    }
+    if(go){ go.disabled=n<2; go.textContent = n>=2?"Mix! ✨":"Mix"; }
   }
   // Pinch / wheel / button zoom + drag-to-pan. Zoom state lives in module vars so
   // it survives the re-render paintPond does on every state change.
@@ -1284,11 +1307,19 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
   }
   function inspectCritter(c){
     const reason=c.reason?esc(c.reason):null;
-    openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}</h3>
+    const kept=!!critterKeep[c.id];
+    openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}${kept?" ❤️":""}</h3>
       <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity)}</div>
-      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="combo"?" · 🧬 Fusion":CATMAP[c.tag]?" · "+CATMAP[c.tag].emoji+" "+esc(CATMAP[c.tag].name):" · ✨ Bonus"):""}</p>
+      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="combo"?" · ✨ Mixed":CATMAP[c.tag]?" · "+CATMAP[c.tag].emoji+" "+esc(CATMAP[c.tag].name):" · ✨ Bonus"):""}</p>
       <div class="critreason">${reason?`<span class="rlbl">Earned for</span>${reason}`:`An early critter 🐣`}</div>
-      <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
+      <button class="gbtn" id="keeptoggle" style="margin-top:12px">${kept?"💔 Allow mixing":"❤️ Keep this one safe"}</button>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{
+      s.querySelector(".cancel").onclick=closeSheet;
+      s.querySelector("#keeptoggle").onclick=()=>{
+        if(critterKeep[c.id])delete critterKeep[c.id]; else critterKeep[c.id]=1;
+        saveCritterKeep(); toast(critterKeep[c.id]?"❤️ Kept safe — won't be mixed":"Mixing allowed again"); closeSheet(); render();
+      };
+    });
   }
   // Kid taps their Pom count → a plain-language history of what each Pom was for.
   function palmHistory(kid){
