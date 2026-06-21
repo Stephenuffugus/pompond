@@ -90,7 +90,7 @@
 
   /* pond — layered water that actually reads like a pond */
   /* organic blob outline so it reads as a real pond, not a rounded card */
-  .pond{--pondR:46% 54% 47% 53% / 61% 58% 42% 39%;margin-top:14px;border-radius:var(--pondR);min-height:252px;
+  .pond{--pondR:46% 54% 47% 53% / 61% 58% 42% 39%;margin-top:14px;border-radius:var(--pondR);min-height:320px;
     position:relative;overflow:hidden;touch-action:pan-y;
     background:
       radial-gradient(130% 85% at 50% -18%, #D6F2EE 0%, rgba(214,242,238,0) 55%),
@@ -120,7 +120,7 @@
     pointer-events:none;animation:ripple 6s ease-out infinite}
   @keyframes ripple{0%{transform:scale(.4);opacity:.0}25%{opacity:.55}100%{transform:scale(2.1);opacity:0}}
   .pond .empty{position:absolute;inset:0;display:grid;place-items:center;color:#f1fffd;font-weight:800;text-align:center;padding:20px;font-size:15px;text-shadow:0 2px 8px rgba(0,30,45,.45)}
-  .critter{position:absolute;width:64px;height:64px;animation:bob 6s ease-in-out infinite;
+  .critter{position:absolute;width:54px;height:54px;animation:bob 6s ease-in-out infinite;
     cursor:grab;touch-action:none;filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
   .critter.dragging{animation:none;z-index:6;cursor:grabbing;filter:drop-shadow(0 12px 9px rgba(0,40,40,.4))}
   .critter::after{content:"";position:absolute;left:14%;right:14%;bottom:-7px;height:8px;border-radius:50%;

@@ -362,11 +362,17 @@
     [10,84].forEach(x=>{const r=document.createElement("div");r.className="reed";r.textContent="🌾";r.style.left=x+"%";stage.appendChild(r);});
     [[34,44],[62,56],[48,70]].forEach(([x,y],i)=>{const rp=document.createElement("div");rp.className="ripple";
       rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";stage.appendChild(rp);});
-    if(!list.length){const em=document.createElement("div");em.className="empty";
+    const n=list.length;
+    if(!n){const em=document.createElement("div");em.className="empty";
       em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";stage.appendChild(em);}
     else list.forEach((c,i)=>{const w=document.createElement("div");w.className="critter";
       const sp=critterPos[c.id];
-      w.style.left=(sp?sp.x:(10+(i*29)%72))+"%"; w.style.top=(sp?sp.y:(22+(i*43)%54))+"%";
+      // golden-angle (phyllotaxis) spiral, scaled by COUNT so the critters fill
+      // the whole pond evenly whether there are 3 or 28 — no diagonal banding,
+      // never clustered in the middle. Dragged critters keep their saved spot.
+      const a=i*2.399963, rr=(n>1?Math.sqrt((i+0.6)/n):0);
+      const dx=sp?sp.x:(50+Math.cos(a)*rr*40), dy=sp?sp.y:(52+Math.sin(a)*rr*34);
+      w.style.left=dx+"%"; w.style.top=dy+"%";
       w.style.animationDelay=(i%6)*0.4+"s";
       w.style.transform=`scale(${1+c.rarity*0.12})`;
       w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity);
