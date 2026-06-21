@@ -123,5 +123,14 @@ ok('the helping Pom tagged a critter with its category + reason',
    (await getDocs(collection(P.db,`families/${fid}/critters`))).docs.some(d=>d.data().tag==='helping' && d.data().reason==='Helped a sibling'));
 await throws('givePom rejects an unknown category', P.call('givePom')({ memberId:'k1', src:'banana', note:'x' }));
 
+// ---------- weighted Poms (per-reason / per-chore value) ----------
+const wB = (await kidDoc()).palms;
+const w2 = await P.call('givePom')({ memberId:'k1', src:'effort', note:'Tried really hard', n:2 });
+ok('givePom n=2 → palms +2 (+ at least 2 reveals)', (await kidDoc()).palms === wB+2 && w2.reveals.length >= 2);
+await setDoc(doc(P.db, `families/${fid}/chores/c2`), { id:'c2', name:'Big clean', secs:60, palm:3 });
+const wB2 = (await kidDoc()).palms;
+const w3 = await P.call('completeChore')({ memberId:'k1', choreId:'c2' });
+ok('chore worth 3 → palms +3 (+ at least 3 reveals)', (await kidDoc()).palms === wB2+3 && w3.reveals.length >= 3);
+
 console.log(`\n${fail === 0 ? '🎉 ALL PASS' : '⚠️  FAILURES'} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

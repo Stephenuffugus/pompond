@@ -57,6 +57,13 @@
     logEvent(fam,kid,opts.type||"chore",opts.note,opts.byUid);
     checkSmall(fam,kid,reveals);
   }
+  // Weighted earn: a reason/chore worth N Poms mints N (preserves "1 Pom = 1
+  // critter"). Clamped 1..9 so a bad value can never runaway-mint.
+  function earnTimes(fam,kid,opts,reveals,n){
+    n=Math.max(1,Math.min(9,Math.floor(n)||1));
+    for(let i=0;i<n;i++) earn(fam,kid,opts,reveals);
+    return n;
+  }
   function checkSmall(fam,kid,reveals){
     const cap=fam.settings.smallCap;
     if(kid.buckets.s>=cap){
@@ -98,7 +105,7 @@
       fam.pending.push({id:id(),ownerId:kid.id,choreId:chore.id,at:Date.now()});
       return {status:'pending'};
     }
-    earn(fam,kid,{type:'chore',byUid:opts.byUid,note:chore.name},reveals);  // note=chore name so kids can see what each Pom was for
+    earnTimes(fam,kid,{type:'chore',byUid:opts.byUid,note:chore.name},reveals,chore.palm||1);  // chore.palm = Pom value; note=chore name
     return {status:'earned'};
   }
 
@@ -134,7 +141,7 @@
   return {
     id, today, doneKey, isDoneToday,
     addCritter, grant, logEvent, bumpStreak,
-    earn, checkSmall, checkMedium, checkBig, resolveChoice, completeChore,
+    earn, earnTimes, checkSmall, checkMedium, checkBig, resolveChoice, completeChore,
     makeCombo, combine
   };
 });

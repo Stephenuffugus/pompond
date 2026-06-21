@@ -98,5 +98,16 @@ let cf2 = freshFam(); cf2.critters = cf.critters.slice();
 ok('rejects fusing a non-owned critter', !!Economy.combine(cf2, kid(cf2), ['c','x'], []).reject);
 ok('rejects fewer than 2', !!Economy.combine(cf2, kid(cf2), ['c'], []).reject);
 
+// --- weighted Poms (per-chore / per-reason value) ---
+let wf = freshFam(); wf.chores = [{ id:'c1', name:'Big clean', secs:60, palm:3 }];
+const wrev = [];
+const wres = Economy.completeChore(wf, kid(wf), wf.chores[0], wrev);
+ok('chore worth 3 → 3 palms + earned', wres.status==='earned' && kid(wf).palms===3);
+ok('chore worth 3 → mints 3 critters (1 Pom = 1 critter held)', wrev.length===3);
+let ef = freshFam(); Economy.earnTimes(ef, kid(ef), { type:'kindness', special:true }, [], 99);
+ok('earnTimes clamps runaway values (99 → 9)', kid(ef).palms===9);
+let e1 = freshFam(); Economy.earnTimes(e1, kid(e1), { type:'chore' }, [], 0);
+ok('earnTimes floors to 1 (0 → 1)', kid(e1).palms===1);
+
 console.log(`\n${fail === 0 ? '🎉 ALL PASS' : '⚠️  FAILURES'} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

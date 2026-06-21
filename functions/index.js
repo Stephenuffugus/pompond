@@ -329,8 +329,9 @@ exports.givePom = onCall(async (req) => {
   if (!memberId || !CATS.includes(src))
     throw new HttpsError('invalid-argument', 'memberId + a valid src category required.');
   const reason = String(note || '').slice(0, 80);
+  const n = Math.max(1, Math.min(3, Math.floor(Number(req.data && req.data.n)) || 1));
   return applyEconomy(fid, memberId, (fam, kid, reveals) => {
-    Economy.earn(fam, kid, { type: src, special: true, note: reason, byUid: uid }, reveals);
+    Economy.earnTimes(fam, kid, { type: src, special: true, note: reason, byUid: uid }, reveals, n);
     return { status: 'earned' };
   });
 });
@@ -378,8 +379,9 @@ exports.approvePending = onCall(async (req) => {
   // look up the chore name so the ledger records what the Pom was for
   const chSnap = p.choreId ? await ref.collection('chores').doc(p.choreId).get() : null;
   const choreName = chSnap && chSnap.exists ? (chSnap.data().name || '') : '';
+  const chorePalm = chSnap && chSnap.exists ? (chSnap.data().palm || 1) : 1;
   const out = await applyEconomy(fid, p.ownerId, (fam, kid, reveals) => {
-    Economy.earn(fam, kid, { type: 'chore', note: choreName }, reveals);
+    Economy.earnTimes(fam, kid, { type: 'chore', note: choreName }, reveals, chorePalm);
     return { status: 'earned' };
   });
   await ref.collection('pending').doc(pendId).delete();
