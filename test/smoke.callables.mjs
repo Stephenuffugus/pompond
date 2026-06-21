@@ -99,6 +99,11 @@ await P.call('markGiven')({ itemId: smallId });
 item = (await getDoc(doc(P.db,`families/${fid}/inventory/${smallId}`))).data();
 ok('parent markGiven flips redeemed → given', item.status === 'given');
 
+// a PARENT can redeem on a kid's behalf (the "couldn't reach server" bug fix)
+const medId = (await getDocs(collection(P.db,`families/${fid}/inventory`))).docs.find(d=>d.data().tier==='medium'&&d.data().status==='ready').id;
+await P.call('redeem')({ itemId: medId, rewardId: null, memberId: 'k1' });
+ok('parent can redeem on a kid\'s behalf', (await getDoc(doc(P.db,`families/${fid}/inventory/${medId}`))).data().status === 'redeemed');
+
 // ---------- co-parent (grandparent) joins via the grown-up invite code ----------
 const authDoc = (await getDoc(doc(P.db, `families/${fid}/private/auth`))).data();
 ok('family has a grown-up invite code', /^[A-Z2-9]{6}$/.test(authDoc.parentCode || ''));

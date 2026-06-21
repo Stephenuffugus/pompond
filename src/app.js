@@ -610,7 +610,7 @@
     openSheet(`<div class="choice"><h3>Spend your ${item.tier} reward</h3>${opts}<div class="sa"><button class="cancel">Later</button></div></div>`,sheet=>{
       sheet.querySelector(".cancel").onclick=closeSheet;
       sheet.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
-        if(cloudActive()){ Backend.cloud.redeem(item.id,o.dataset.r).catch(()=>toast("Couldn't reach server")); closeSheet(); confetti(); return; }
+        if(cloudActive()){ Backend.cloud.redeem(item.id,o.dataset.r,kid.id).catch(()=>toast("Couldn't redeem that — try again")); closeSheet(); confetti(); return; }
         item.status="redeemed";item.rewardId=o.dataset.r;const rw=fam.rewards.find(r=>r.id===o.dataset.r);Economy.logEvent(fam,kid,"redeem",rw?rw.name:"");save();closeSheet();confetti();render();});
     });
   }

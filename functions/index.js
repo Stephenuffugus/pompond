@@ -349,7 +349,13 @@ exports.resolveChoice = onCall(async (req) => {
 
 // Kid redeems a ready reward token (ready -> redeemed). Parent later marks given.
 exports.redeem = onCall(async (req) => {
-  const { fid, memberId } = requireChild(req);
+  // A kid redeems their own token; a parent may redeem on a kid's behalf (same
+  // pattern as completeChore). Ownership is still enforced (item.ownerId).
+  const a = requireAuth(req);
+  const fid = a.token.familyId;
+  if (!fid) throw new HttpsError('permission-denied', 'No family.');
+  const memberId = a.token.role === 'parent' ? (req.data && req.data.memberId) : a.token.memberId;
+  if (!memberId) throw new HttpsError('invalid-argument', 'memberId required.');
   const { itemId, rewardId } = req.data || {};
   const ref = famRef(fid);
   await db.runTransaction(async (tx) => {
