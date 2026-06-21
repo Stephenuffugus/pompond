@@ -11,7 +11,7 @@
   const cloudActive = () => Backend.cloudActive();
 
   const ARCHETYPES = CritterEngine.list;
-  const renderCritter = (seed,archetype,rarity)=>CritterEngine.render(seed,archetype,rarity);
+  const renderCritter = (seed,archetype,rarity,opts)=>CritterEngine.render(seed,archetype,rarity,opts);
 
   /* ---------- state ---------- */
   function id(){return Math.random().toString(36).slice(2,9);}
@@ -191,7 +191,8 @@
   function showReveal(c,cb){
     const ov=document.getElementById("reveal");
     const label=c.special?(c.tag==="combo"?("✨ "+esc(Evolution.tierName(c.tier))+"!"):CATMAP[c.tag]?CATMAP[c.tag].emoji+" "+CATMAP[c.tag].name+"!":"✨ Bonus Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
-    ov.innerHTML=`<div class="reveal-card"><div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity)}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
+    const shiny=CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
+    ov.innerHTML=`<div class="reveal-card"><div class="rl-sub">${shiny?"✨ SHINY! ":""}${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true})}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
     ov.classList.add("show"); confetti(); beep(c.rarity>=2||c.special);
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
     ov.onclick=close; setTimeout(close,c.rarity>=2?2400:1500);
@@ -539,10 +540,10 @@
   }
   function inspectCritter(c){
     const reason=c.reason?esc(c.reason):null;
-    const kept=!!critterKeep[c.id];
-    openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}${kept?" ❤️":""}</h3>
-      <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity)}</div>
-      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${(c.tier|0)>0?'🌟 '+esc(Evolution.tierName(c.tier))+' · ':''}${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="combo"?" · ✨ Mixed":CATMAP[c.tag]?" · "+CATMAP[c.tag].emoji+" "+esc(CATMAP[c.tag].name):" · ✨ Bonus"):""}</p>
+    const kept=!!critterKeep[c.id], shiny=CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
+    openSheet(`<h3 style="text-align:center">${shiny?"✨ ":""}${CritterEngine.name(c.archetype)}${kept?" ❤️":""}</h3>
+      <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true})}</div>
+      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${shiny?'✨ Shiny · ':''}${(c.tier|0)>0?'🌟 '+esc(Evolution.tierName(c.tier))+' · ':''}${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="combo"?" · ✨ Mixed":CATMAP[c.tag]?" · "+CATMAP[c.tag].emoji+" "+esc(CATMAP[c.tag].name):" · ✨ Bonus"):""}</p>
       <div class="critreason">${reason?`<span class="rlbl">Earned for</span>${reason}`:`An early critter 🐣`}</div>
       <button class="gbtn" id="keeptoggle" style="margin-top:12px">${kept?"💔 Allow mixing":"❤️ Keep this one safe"}</button>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{

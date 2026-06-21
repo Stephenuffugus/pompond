@@ -59,6 +59,13 @@
     else if(rarity>=2)t.accessory=pick(r,['bow','flower','hat','star','headphones']);
     else if(rarity>=1)t.accessory=(r()<0.32)?pick(r,['bow','flower','hat','leaf','scarf']):'none';
     else t.accessory=(r()<0.10)?pick(r,['bow','flower','leaf']):'none';
+    // ---- variety axes on a SEPARATE rng so the main stream (which the body draw
+    //      and sparkles keep consuming after this) is untouched → existing critters
+    //      render identically; only shiny ones add a rim + sparkles. ----
+    const r2=rng(seed+'~v2');
+    t.bg=pick(r2,['none','none','none','none','none','none','bubbles','sky','meadow','sunset']); // showcase views only
+    t.shiny=r2()<0.05;   // ~1 in 20 — a coveted iridescent variant (shows everywhere)
+    t.r2=r2;
     return t;
   }
 
@@ -169,14 +176,22 @@
   // the full list and STORE the result, so they never depend on this.)
   const FALLBACK_N=40;
 
-  function sparkles(t,n){let r=t.r,out='';for(let i=0;i<n;i++){const a=r()*Math.PI*2,rad=38+r()*8,x=f1(50+rad*Math.cos(a)),y=f1(54+rad*Math.sin(a)),sz=f1(2+r()*2);out+=star(x,y,sz,'hsl(50,100%,75%)');}return out;}
+  function sparkles(t,n,rfn){let r=rfn||t.r,out='';for(let i=0;i<n;i++){const a=r()*Math.PI*2,rad=38+r()*8,x=f1(50+rad*Math.cos(a)),y=f1(54+rad*Math.sin(a)),sz=f1(2+r()*2);out+=star(x,y,sz,'hsl(50,100%,75%)');}return out;}
+  // showcase-only scene behind the critter (a rounded card) — opt-in via render opts.bg
+  function background(t){const c=t.uid,b=t.bg;
+    if(b==='sky')return `<defs><radialGradient id="bg${c}" cx="50%" cy="36%" r="78%"><stop offset="0%" stop-color="#46589a"/><stop offset="100%" stop-color="#1b2350"/></radialGradient></defs><rect width="100" height="100" rx="22" fill="url(#bg${c})"/><circle cx="24" cy="22" r="1.2" fill="#fff" opacity=".9"/><circle cx="73" cy="17" r="1.5" fill="#fff" opacity=".9"/><circle cx="85" cy="38" r="1" fill="#fff" opacity=".8"/><circle cx="35" cy="33" r="0.9" fill="#fff" opacity=".7"/><circle cx="62" cy="44" r="0.8" fill="#fff" opacity=".6"/>`;
+    if(b==='meadow')return `<defs><linearGradient id="bg${c}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#bfe8ff"/><stop offset="58%" stop-color="#d4f0fb"/><stop offset="100%" stop-color="#8ed179"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(#bg${c})"/>`;
+    if(b==='sunset')return `<defs><linearGradient id="bg${c}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffd089"/><stop offset="55%" stop-color="#ff9d7a"/><stop offset="100%" stop-color="#c86fa6"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(#bg${c})"/>`;
+    if(b==='bubbles')return `<defs><radialGradient id="bg${c}" cx="50%" cy="40%" r="78%"><stop offset="0%" stop-color="#d9f4ef"/><stop offset="100%" stop-color="#a3dde6"/></radialGradient></defs><rect width="100" height="100" rx="22" fill="url(#bg${c})"/><circle cx="20" cy="30" r="5" fill="#fff" opacity=".25"/><circle cx="81" cy="24" r="7" fill="#fff" opacity=".22"/><circle cx="72" cy="63" r="4" fill="#fff" opacity=".25"/><circle cx="27" cy="71" r="6" fill="#fff" opacity=".2"/>`;
+    return '';}
 
-  function render(seed,archetype,rarity){
+  function render(seed,archetype,rarity,opts){
     rarity=(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0;   // normalize to 0–3 so aura visuals & rarityName always agree (identity for valid inputs)
     if(!ARCH[archetype])archetype=KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)];
     const t=traits(seed,rarity,archetype);
     const out=ARCH[archetype](t), inner=out[0], ax=out[1], ay=out[2];
     const c=t.uid;
+    const bg=(opts&&opts.bg)?background(t):'';   // scene only in showcase views (no pond clutter)
     let aura='', spark='';
     if(rarity===1){
       // soft radial halo (transparent core) — adds a gentle glow without the
@@ -193,11 +208,16 @@
       aura=`<defs><radialGradient id="${gid}"><stop offset="50%" stop-color="hsl(46,95%,62%,0)"/><stop offset="100%" stop-color="hsl(46,95%,58%,.5)"/></radialGradient></defs><circle cx="50" cy="56" r="49" fill="url(#${gid})"/><circle cx="50" cy="56" r="47" fill="none" stroke="hsl(45,95%,55%,.8)" stroke-width="2.5"/><circle cx="50" cy="56" r="43" fill="none" stroke="hsl(48,100%,70%,.5)" stroke-width="1"/>`;
       spark=sparkles(t,6);
     }
+    if(t.shiny){   // coveted iridescent variant — rainbow rim + sparkles ON TOP of any aura, everywhere
+      const sg='sh'+c;
+      aura+=`<defs><linearGradient id="${sg}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ff8ad8"/><stop offset="34%" stop-color="#8ad0ff"/><stop offset="67%" stop-color="#ffe98a"/><stop offset="100%" stop-color="#9affc8"/></linearGradient></defs><circle cx="50" cy="56" r="47" fill="none" stroke="url(#${sg})" stroke-width="3" opacity=".85"/>`;
+      spark+=sparkles(t,5,t.r2);
+    }
     // Soft white "sticker" outline around the whole critter (silhouette pops on
     // any background). Standard SVG filter — supported by every modern browser.
     const oid='o'+c;
     const outline=`<filter id="${oid}" x="-18%" y="-18%" width="136%" height="136%"><feMorphology in="SourceAlpha" operator="dilate" radius="2.2" result="d"/><feFlood flood-color="#ffffff" result="w"/><feComposite in="w" in2="d" operator="in" result="o"/><feMerge><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
-    return `<svg viewBox="0 0 100 100" width="100%" height="100%"><defs>${outline}</defs>${aura}<g filter="url(#${oid})">${inner}${accessory(t,ax,ay)}</g>${spark}</svg>`;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%"><defs>${outline}</defs>${bg}${aura}<g filter="url(#${oid})">${inner}${accessory(t,ax,ay)}</g>${spark}</svg>`;
   }
 
   return {render,list:KEYS,randomArchetype:()=>KEYS[Math.floor(Math.random()*KEYS.length)],
@@ -205,5 +225,6 @@
     rarityName:n=>['Common','Uncommon','Rare','Legendary'][n]||'Common',
     // --- deterministic helpers for combining critters ---
     archetypeFor:(seed)=>KEYS[hash(String(seed))%KEYS.length],   // a species from a seed
-    combineSeed:(seeds)=>'cmb:'+hash((seeds||[]).slice().sort().join('|')).toString(36)}; // stable child seed
+    combineSeed:(seeds)=>'cmb:'+hash((seeds||[]).slice().sort().join('|')).toString(36), // stable child seed
+    isShiny:(seed,arch,rarity)=>traits(seed,(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0,ARCH[arch]?arch:KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)]).shiny}; // seed-derived shiny flag
 });
