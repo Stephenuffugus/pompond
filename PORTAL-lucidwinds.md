@@ -15,8 +15,11 @@ independent of any dev machine. Nothing to host on your side; you're just linkin
 - **Open behavior:** **NEW TAB / full window — do NOT embed in an iframe.**
   Pom Pond uses Google/email sign-in (OAuth popups) and the "Add to Home Screen"
   install prompt; both are blocked inside iframes. It must launch out.
-- **Tile icon (hosted, use directly):** https://pom-pond.web.app/icons/icon-512.png
-  (or the inline SVG at the bottom of this file)
+- **Tile image / thumbnail (hosted, use directly):** https://pom-pond.web.app/portal-thumb.png
+  (512×512 cover art — a frog napping in a pod under the stars; high-res
+  1024×1024 at https://pom-pond.web.app/portal-thumb-1024.png)
+- **App icon (square logo, if you want a small mark instead of the cover):**
+  https://pom-pond.web.app/icons/icon-512.png (or the inline SVG at the bottom of this file)
 
 ## Short description (for the tile / catalog)
 
