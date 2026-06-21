@@ -93,6 +93,7 @@
      cloud path routes to server-authoritative Cloud Functions.
      ============================================================ */
   let revealQ=[];
+  let pondZoom=1, pondPanX=0, pondPanY=0;   // pond view state — persists across re-renders
   const today=()=>Economy.today();
   const isDoneToday=(kid,chore)=>Economy.isDoneToday(fam,kid,chore);
 
@@ -327,27 +328,75 @@
   }
   function paintPond(kid){
     const pond=app.querySelector("#pond"); const all=crittersOf(kid.id); const list=all.slice(-28);
-    pond.innerHTML=`<div class="pondcount">${all.length} 🪷</div>`;
+    pond.innerHTML="";
+    // Everything pannable/zoomable lives in the stage; badges + zoom buttons sit outside it.
+    const stage=document.createElement("div"); stage.className="pond-stage";
     // CSS lily pads (disc with the classic V-notch), some with a lotus flower
-    [[12,60,58],[68,28,48],[42,76,42],[80,64,54]].forEach(([x,y,w],i)=>{
+    [[14,58,58],[66,26,48],[44,74,42],[78,60,54]].forEach(([x,y,w],i)=>{
       const p=document.createElement("div");p.className="pad";
       p.style.left=x+"%";p.style.top=y+"%";p.style.width=w+"px";p.style.height=Math.round(w*0.7)+"px";
-      p.style.animationDelay=(i*0.8)+"s";pond.appendChild(p);
+      p.style.animationDelay=(i*0.8)+"s";stage.appendChild(p);
       if(i%2===0){const f=document.createElement("div");f.className="lily";f.textContent="🌸";
-        f.style.left=(x+3)+"%";f.style.top=(y-3)+"%";f.style.fontSize="18px";f.style.animationDelay=(i*0.8)+"s";pond.appendChild(f);}
+        f.style.left=(x+3)+"%";f.style.top=(y-3)+"%";f.style.fontSize="18px";f.style.animationDelay=(i*0.8)+"s";stage.appendChild(f);}
     });
-    // reeds at the back corners + a few gentle ripples for life
-    [4,90].forEach(x=>{const r=document.createElement("div");r.className="reed";r.textContent="🌾";r.style.left=x+"%";pond.appendChild(r);});
-    [[30,42],[64,56],[48,72]].forEach(([x,y],i)=>{const rp=document.createElement("div");rp.className="ripple";
-      rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";pond.appendChild(rp);});
+    // reeds near the back corners + a few gentle ripples for life
+    [10,84].forEach(x=>{const r=document.createElement("div");r.className="reed";r.textContent="🌾";r.style.left=x+"%";stage.appendChild(r);});
+    [[34,44],[62,56],[48,70]].forEach(([x,y],i)=>{const rp=document.createElement("div");rp.className="ripple";
+      rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";stage.appendChild(rp);});
     if(!list.length){const em=document.createElement("div");em.className="empty";
-      em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";pond.appendChild(em);return;}
-    list.forEach((c,i)=>{const w=document.createElement("div");w.className="critter";
-      w.style.left=(6+ (i*29)%82)+"%"; w.style.top=(18+(i*43)%62)+"%";
+      em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";stage.appendChild(em);}
+    else list.forEach((c,i)=>{const w=document.createElement("div");w.className="critter";
+      w.style.left=(10+(i*29)%72)+"%"; w.style.top=(22+(i*43)%54)+"%";
       w.style.animationDelay=(i%6)*0.4+"s"; w.style.cursor="pointer";
       w.style.transform=`scale(${1+c.rarity*0.12})`;
       w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity);
-      w.onclick=()=>inspectCritter(c); pond.appendChild(w);});
+      w.onclick=()=>{ if(pond._ppDragged) return; inspectCritter(c); }; stage.appendChild(w);});
+    pond.appendChild(stage);
+    const count=document.createElement("div");count.className="pondcount";count.textContent=all.length+" 🪷";pond.appendChild(count);
+    if(list.length){
+      const zc=document.createElement("div");zc.className="pond-zoom";
+      zc.innerHTML=`<button class="zb" id="zin" aria-label="Zoom in">+</button><button class="zb" id="zout" aria-label="Zoom out">−</button>`;
+      pond.appendChild(zc);
+      setupPondZoom(pond,stage);
+    } else { pondZoom=1; pondPanX=pondPanY=0; stage.style.transform=""; }
+  }
+  // Pinch / wheel / button zoom + drag-to-pan. Zoom state lives in module vars so
+  // it survives the re-render paintPond does on every state change.
+  function setupPondZoom(pond,stage){
+    const MINZ=1, MAXZ=3.2;
+    const dist=t=>Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
+    const clampPan=()=>{
+      const r=pond.getBoundingClientRect();
+      const mx=Math.max(0,(pondZoom-1)*r.width/2), my=Math.max(0,(pondZoom-1)*r.height/2);
+      pondPanX=Math.max(-mx,Math.min(mx,pondPanX)); pondPanY=Math.max(-my,Math.min(my,pondPanY));
+    };
+    const apply=(animate)=>{
+      stage.style.transition=animate?"transform .15s ease-out":"none";
+      stage.style.transform=`translate(${pondPanX.toFixed(1)}px,${pondPanY.toFixed(1)}px) scale(${pondZoom.toFixed(3)})`;
+      pond.classList.toggle("zoomed",pondZoom>1.001);
+      const zo=pond.querySelector("#zout"),zi=pond.querySelector("#zin");
+      if(zo)zo.disabled=pondZoom<=MINZ+0.001; if(zi)zi.disabled=pondZoom>=MAXZ-0.001;
+    };
+    const setZoom=(z,animate)=>{ pondZoom=Math.max(MINZ,Math.min(MAXZ,z)); if(pondZoom<=MINZ){pondPanX=pondPanY=0;} clampPan(); apply(animate); };
+    const zi=pond.querySelector("#zin"),zo=pond.querySelector("#zout");
+    if(zi)zi.onclick=e=>{e.stopPropagation();setZoom(pondZoom+0.6,true);};
+    if(zo)zo.onclick=e=>{e.stopPropagation();setZoom(pondZoom-0.6,true);};
+    pond.onwheel=e=>{ e.preventDefault(); setZoom(pondZoom+(e.deltaY<0?0.3:-0.3),false); };
+    // drag-to-pan (only when zoomed in); guards a critter tap from firing after a drag
+    let drag=false,pinching=false,sx=0,sy=0,ox=0,oy=0;
+    pond.onpointerdown=e=>{ if(pinching||pondZoom<=MINZ||(e.target.closest&&e.target.closest(".zb")))return;
+      drag=true;sx=e.clientX;sy=e.clientY;ox=pondPanX;oy=pondPanY;pond._ppDragged=false;
+      try{pond.setPointerCapture(e.pointerId);}catch(_){}};
+    pond.onpointermove=e=>{ if(!drag||pinching)return; const dx=e.clientX-sx,dy=e.clientY-sy;
+      if(Math.abs(dx)+Math.abs(dy)>6)pond._ppDragged=true; pondPanX=ox+dx;pondPanY=oy+dy; clampPan(); apply(false); };
+    const end=()=>{ if(!drag)return; drag=false; if(pond._ppDragged)setTimeout(()=>{pond._ppDragged=false;},60); };
+    pond.onpointerup=end; pond.onpointercancel=end;
+    // pinch-to-zoom (touch). Native pinch is disabled (user-scalable=no), so this owns it.
+    let pd=0,pz=1;
+    pond.ontouchstart=e=>{ if(e.touches.length===2){pinching=true;drag=false;pd=dist(e.touches);pz=pondZoom;} };
+    pond.ontouchmove=e=>{ if(e.touches.length===2&&pd){ e.preventDefault(); setZoom(pz*(dist(e.touches)/pd),false); } };
+    pond.ontouchend=e=>{ if(e.touches.length<2){pinching=false;pd=0;} };
+    apply(false);
   }
   function inspectCritter(c){
     openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}</h3>
