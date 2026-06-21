@@ -48,9 +48,10 @@
     kid.palms=(kid.palms||0)+1;
     bumpStreak(fam,kid);
     // why this critter exists, in plain words — so a kid can tap it and remember.
-    const reason=opts.type==="kindness"?("A kind thing"+(opts.note?" — "+opts.note:""))
-      :opts.type==="school"?("School"+(opts.note?" — "+opts.note:""))
-      :(opts.note||"Did a chore");
+    // For freely-given Poms the note IS the specific reason label (e.g. "Shared
+    // without being asked"); for chores it's the chore name.
+    const reason=(opts.note&&(""+opts.note).trim())?(""+opts.note).trim()
+      :(opts.type==="chore"?"Did a chore":"A kindness");
     addCritter(fam,kid.id,opts.special?1:0,opts.special,opts.special?opts.type:null,reveals,reason);
     kid.buckets.s++;
     logEvent(fam,kid,opts.type||"chore",opts.note,opts.byUid);

@@ -323,10 +323,14 @@ exports.completeChore = onCall(async (req) => {
 exports.givePom = onCall(async (req) => {
   const { uid, fid } = requireParent(req);
   const { memberId, src, note } = req.data || {};
-  if (!memberId || !['kindness','school'].includes(src))
-    throw new HttpsError('invalid-argument', 'memberId + src(kindness|school) required.');
+  // positive-behaviour categories (the app's GIVE_CATS keys). Specific reason
+  // text rides along in `note`; clamp it so a client can't store a huge string.
+  const CATS = ['kindness','helping','effort','respect','school','family'];
+  if (!memberId || !CATS.includes(src))
+    throw new HttpsError('invalid-argument', 'memberId + a valid src category required.');
+  const reason = String(note || '').slice(0, 80);
   return applyEconomy(fid, memberId, (fam, kid, reveals) => {
-    Economy.earn(fam, kid, { type: src, special: true, note: note || "", byUid: uid }, reveals);
+    Economy.earn(fam, kid, { type: src, special: true, note: reason, byUid: uid }, reveals);
     return { status: 'earned' };
   });
 });

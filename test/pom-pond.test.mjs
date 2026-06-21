@@ -68,8 +68,7 @@ async function run() {
   const giveRow = () => [...document.querySelectorAll('#kidRows .row')].find(r => /Maya/.test(r.textContent));
   for (let i = 0; i < 8; i++) {
     click(giveRow().querySelector('.mini:not(.ghost)')); await wait(8);
-    click(document.querySelector('.srcbtn[data-s="school"]')); await wait(5);
-    click(document.querySelector('#scrim .save')); await wait(8);
+    click(document.querySelector('.givechip[data-cat="school"]')); await wait(10); // tap a School reason → instant give
   }
   await wait(50);
   s = state(); maya = s.members.find(m => m.name === 'Maya');

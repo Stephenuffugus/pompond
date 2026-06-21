@@ -75,6 +75,13 @@
   .actrow .pminus{color:var(--soft);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
   .critreason{text-align:center;font-weight:800;color:var(--ink);font-size:15px;background:var(--bg2);border-radius:14px;padding:10px 14px;margin:2px 0 14px}
   .critreason .rlbl{display:block;color:var(--soft);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+  /* give-a-Pom reason picker */
+  .givewrap{max-height:56vh;overflow:auto;margin:0 -2px 12px;padding:0 2px}
+  .givecat{font-weight:800;font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.04em;margin:13px 2px 7px}
+  .givecat:first-child{margin-top:2px}
+  .giverow{display:flex;flex-wrap:wrap;gap:7px}
+  .givechip{border:2px solid #e3edeb;background:#fff;border-radius:13px;padding:8px 11px;font-weight:800;font-size:13px;color:var(--ink);cursor:pointer;box-shadow:0 4px 10px -8px rgba(0,0,0,.3);-webkit-tap-highlight-color:transparent}
+  .givechip:active{transform:scale(.95);border-color:var(--accent);background:#eafaf8}
 
   /* buckets */
   .buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
@@ -627,9 +634,10 @@
     kid.palms=(kid.palms||0)+1;
     bumpStreak(fam,kid);
     // why this critter exists, in plain words — so a kid can tap it and remember.
-    const reason=opts.type==="kindness"?("A kind thing"+(opts.note?" — "+opts.note:""))
-      :opts.type==="school"?("School"+(opts.note?" — "+opts.note:""))
-      :(opts.note||"Did a chore");
+    // For freely-given Poms the note IS the specific reason label (e.g. "Shared
+    // without being asked"); for chores it's the chore name.
+    const reason=(opts.note&&(""+opts.note).trim())?(""+opts.note).trim()
+      :(opts.type==="chore"?"Did a chore":"A kindness");
     addCritter(fam,kid.id,opts.special?1:0,opts.special,opts.special?opts.type:null,reveals,reason);
     kid.buckets.s++;
     logEvent(fam,kid,opts.type||"chore",opts.note,opts.byUid);
@@ -747,6 +755,31 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
   const KID_EMOJI=["🦊","🐼","🐯","🦁","🐸","🐵","🐶","🐱","🦄","🐧","🐢","🦖","🐙","🦋","🐝","🦉","🐰","🐨"];
   const ADULT_EMOJI=["🧑‍🍳","👩","👨","👵","👴","🧕","👩‍🦰","🧔","👩‍🦳","👨‍🦳","🧑‍🌾","👩‍🏫","👨‍🍳","🦸","🧑‍💻","👩‍⚕️"];
   const COLORS=["#FF8A5B","#5BB1FF","#5BB98C","#C98BFF","#FFC24B","#FF6FA5","#4EC6C6","#9FCB55"];
+  /* Freely-given Poms — a rich, organised list of positive reasons (inspired by
+     ClassDojo's default behaviours + their at-home routines, tuned for families).
+     `key` is the small category enum the server validates; the specific label is
+     stored as the Pom's reason. Add/trim freely — the server allows any key here. */
+  const GIVE_CATS=[
+    {key:"kindness",emoji:"💛",name:"Kindness",reasons:[
+      ["🤗","Was kind to someone"],["🤝","Shared without being asked"],["🫂","Comforted someone"],
+      ["👋","Included someone"],["🐾","Gentle with a pet"],["💌","Said something nice"]]},
+    {key:"helping",emoji:"🤝",name:"Helping",reasons:[
+      ["🙋","Helped without being asked"],["🧒","Helped a sibling"],["🍽️","Helped make dinner"],
+      ["🧹","Cleaned up extra"],["🛒","Helped with errands"],["💪","Did a big job"]]},
+    {key:"effort",emoji:"🚀",name:"Effort & Grit",reasons:[
+      ["🚀","Tried really hard"],["🧗","Didn't give up"],["🎯","Practiced something"],
+      ["🌱","Great attitude"],["⏰","Did it right away"],["🧠","Solved a problem"]]},
+    {key:"respect",emoji:"🙏",name:"Manners & Respect",reasons:[
+      ["🙏","Used good manners"],["🗣️","Please & thank you"],["👂","Listened well"],
+      ["⏳","Waited their turn"],["✅","Told the truth"],["😌","Stayed calm"]]},
+    {key:"school",emoji:"🏫",name:"School & Learning",reasons:[
+      ["🏫","Great day at school"],["📚","Finished homework"],["📖","Read a book"],
+      ["⭐","Caught being good"],["✏️","Did their best work"],["🎨","Got creative"]]},
+    {key:"family",emoji:"🏡",name:"Family & Home",reasons:[
+      ["🏡","Great family time"],["🐶","Looked after a pet"],["🏆","Good sport"],
+      ["🛏️","Got ready on time"],["😴","Smooth bedtime"],["🌟","Big helper today"]]}
+  ];
+  const CATMAP={}; GIVE_CATS.forEach(c=>CATMAP[c.key]={emoji:c.emoji,name:c.name});
 
   function defaultFamily(){
     return {
@@ -887,7 +920,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
   }
   function showReveal(c,cb){
     const ov=document.getElementById("reveal");
-    const label=c.special?(c.tag==="school"?"🏫 School "+esc(cname())+"!":c.tag==="combo"?"🧬 New Fusion!":"✨ Kindness Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
+    const label=c.special?(c.tag==="combo"?"🧬 New Fusion!":CATMAP[c.tag]?CATMAP[c.tag].emoji+" "+CATMAP[c.tag].name+"!":"✨ Bonus Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
     ov.innerHTML=`<div class="reveal-card"><div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity)}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
     ov.classList.add("show"); confetti(); beep(c.rarity>=2||c.special);
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
@@ -1222,7 +1255,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     const reason=c.reason?esc(c.reason):null;
     openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}</h3>
       <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity)}</div>
-      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="school"?" · 🏫 School "+esc(cname()):c.tag==="combo"?" · 🧬 Fusion":" · ✨ Kindness critter"):""}</p>
+      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="combo"?" · 🧬 Fusion":CATMAP[c.tag]?" · "+CATMAP[c.tag].emoji+" "+esc(CATMAP[c.tag].name):" · ✨ Bonus"):""}</p>
       <div class="critreason">${reason?`<span class="rlbl">Earned for</span>${reason}`:`An early critter 🐣`}</div>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
   }
@@ -1233,12 +1266,11 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     if(mine.length) mine.forEach(e=>{   // log is newest-first → group consecutive same-day entries under a date header
       const dk=dayKey(e.at);
       if(dk!==lastDay){ lastDay=dk; rows+=`<div class="dayhdr">${esc(dayLabel(e.at))}</div>`; }
-      const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":e.type==="combine"?"🧬":"✅";
-      const txt=e.type==="kindness"?("A kind thing"+(e.note?" — "+esc(e.note):""))
-        :e.type==="school"?("School"+(e.note?" — "+esc(e.note):""))
-        :e.type==="redeem"?("Spent on "+esc(e.note||"a reward"))
+      const cat=CATMAP[e.type];
+      const ic=e.type==="redeem"?"🎉":e.type==="combine"?"🧬":cat?cat.emoji:"✅";
+      const txt=e.type==="redeem"?("Spent on "+esc(e.note||"a reward"))
         :e.type==="combine"?(e.note?esc(e.note):"Fused critters")
-        :(e.note?esc(e.note):"Did a chore");
+        :(e.note?esc(e.note):(cat?cat.name:"Did a chore"));
       const tag=e.type==="redeem"?'<span class="pminus">spent</span>':e.type==="combine"?'<span class="pminus">fused</span>':`<span class="pplus">+1 ${pomIcon(12)}</span>`;
       rows+=`<div class="actrow"><span>${ic}</span><span class="grow">${txt}</span>${tag}<span class="ago">${esc(clockTime(e.at))}</span></div>`;
     });
@@ -1422,8 +1454,9 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       fam.log.slice(0,14).forEach(e=>{const kid=member(e.ownerId);
         const dk=dayKey(e.at);
         if(dk!==lastDay){ lastDay=dk; const h=document.createElement("div");h.className="dayhdr";h.textContent=dayLabel(e.at);al.appendChild(h); }
-        const ic=e.type==="kindness"?"💛":e.type==="school"?"🏫":e.type==="redeem"?"🎉":e.type==="combine"?"🧬":pomIcon(15);
-        const txt=e.type==="kindness"?("Kindness "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="school"?("School "+esc(cname())+(e.note?" — "+esc(e.note):"")):e.type==="redeem"?("Redeemed "+esc(e.note||"a reward")):e.type==="combine"?("Fused critters"+(e.note?" — "+esc(e.note):"")):"Did a chore";
+        const cat=CATMAP[e.type];
+        const ic=e.type==="redeem"?"🎉":e.type==="combine"?"🧬":cat?cat.emoji:pomIcon(15);
+        const txt=e.type==="redeem"?("Redeemed "+esc(e.note||"a reward")):e.type==="combine"?("Fused critters"+(e.note?" — "+esc(e.note):"")):(e.note?esc(e.note):(cat?cat.name:"Did a chore"));
         const li=document.createElement("div");li.className="actrow";
         li.innerHTML=`<span>${ic}</span><span class="grow"><b>${kid?esc(kid.name):"?"}</b> · ${txt}</span><span class="ago">${esc(clockTime(e.at))}</span>`;
         al.appendChild(li);});}
@@ -1440,21 +1473,23 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
   function clockTime(ts){return new Date(ts).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});}
 
   function kindnessSheet(kid){
-    let src="kindness";
+    // Award a bonus Pom for a positive behaviour — tap a reason to give instantly.
+    const award=(cat,label,emoji)=>{ givePom(kid,cat,label); closeSheet(); confetti(); beep(true); render();
+      toast((emoji||"🌟")+" "+esc(cname())+" given to "+esc(kid.name)); };
+    const sections=GIVE_CATS.map(c=>`<div class="givecat">${c.emoji} ${esc(c.name)}</div><div class="giverow">`+
+      c.reasons.map(r=>`<button class="givechip" data-cat="${c.key}" data-emoji="${r[0]}" data-label="${esc(r[1])}">${r[0]} ${esc(r[1])}</button>`).join("")+`</div>`).join("");
     openSheet(`<h3>Give ${esc(kid.name)} a ${esc(cname())} ${pomIcon(17)}</h3>
-      <div class="field"><label>For…</label>
-        <div style="display:flex;gap:8px">
-          <button class="srcbtn on" data-s="kindness" style="flex:1">💛 Kindness<br><span>helpful at home</span></button>
-          <button class="srcbtn" data-s="school" style="flex:1">🏫 School<br><span>earned in class</span></button>
-        </div></div>
-      <div class="field"><label>Note (optional)</label><input id="note" placeholder="Helped without being asked…"></div>
-      <div class="sa"><button class="cancel">Cancel</button><button class="save">Give ${esc(cname())} ${pomIcon(15)}</button></div>`,sheet=>{
-      const note=sheet.querySelector("#note");
-      sheet.querySelectorAll(".srcbtn").forEach(b=>b.onclick=()=>{src=b.dataset.s;
-        sheet.querySelectorAll(".srcbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
-        note.placeholder=src==="school"?"Earned 'caught being good' in class…":"Helped without being asked…";});
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-8px 0 8px">Tap what they did — they'll earn a ${esc(cname())} + a critter 🐣</p>
+      <div class="givewrap">${sections}
+        <div class="givecat">✍️ Something else</div>
+        <div class="minrow"><input id="gnote" placeholder="Type what they did…" style="flex:1" maxlength="60"><button class="save" id="gcustom">Give</button></div>
+      </div>
+      <div class="sa"><button class="cancel">Close</button></div>`,sheet=>{
+      sheet.querySelectorAll(".givechip").forEach(b=>b.onclick=()=>award(b.dataset.cat,b.dataset.label,b.dataset.emoji));
+      const note=sheet.querySelector("#gnote");
+      sheet.querySelector("#gcustom").onclick=()=>{ const n=(note.value||"").trim(); if(!n){ note.focus(); return; } award("kindness",n,"🌟"); };
+      note.onkeydown=(e)=>{ if(e.key==="Enter"){ e.preventDefault(); sheet.querySelector("#gcustom").click(); } };
       sheet.querySelector(".cancel").onclick=closeSheet;
-      sheet.querySelector(".save").onclick=()=>{const n=note.value.trim();givePom(kid,src,n);closeSheet();confetti();beep(true);render();toast(esc(cname())+" given to "+esc(kid.name)+(src==="school"?" 🏫":" 💛"));};
     });
   }
 

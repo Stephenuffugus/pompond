@@ -115,5 +115,13 @@ const palmsBefore = (await kidDoc()).palms;
 await G.call('givePom')({ memberId: 'k1', src: 'kindness', note: 'from grandma' });
 ok('co-parent has full parent powers (can grant Poms)', (await kidDoc()).palms === palmsBefore + 1);
 
+// ---------- expanded give-a-Pom categories ----------
+const palmsB = (await kidDoc()).palms;
+await P.call('givePom')({ memberId:'k1', src:'helping', note:'Helped a sibling' });
+ok('givePom accepts a new category (helping) + credits', (await kidDoc()).palms === palmsB + 1);
+ok('the helping Pom tagged a critter with its category + reason',
+   (await getDocs(collection(P.db,`families/${fid}/critters`))).docs.some(d=>d.data().tag==='helping' && d.data().reason==='Helped a sibling'));
+await throws('givePom rejects an unknown category', P.call('givePom')({ memberId:'k1', src:'banana', note:'x' }));
+
 console.log(`\n${fail === 0 ? '🎉 ALL PASS' : '⚠️  FAILURES'} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
