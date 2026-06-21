@@ -166,7 +166,7 @@
   function sparkles(t,n){let r=t.r,out='';for(let i=0;i<n;i++){const a=r()*Math.PI*2,rad=38+r()*8,x=f1(50+rad*Math.cos(a)),y=f1(54+rad*Math.sin(a)),sz=f1(2+r()*2);out+=star(x,y,sz,'hsl(50,100%,75%)');}return out;}
 
   function render(seed,archetype,rarity){
-    rarity=rarity||0;
+    rarity=(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0;   // normalize to 0–3 so aura visuals & rarityName always agree (identity for valid inputs)
     if(!ARCH[archetype])archetype=KEYS[hash(seed)%KEYS.length];
     const t=traits(seed,rarity,archetype);
     const out=ARCH[archetype](t), inner=out[0], ax=out[1], ay=out[2];

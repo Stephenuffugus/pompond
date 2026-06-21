@@ -405,6 +405,7 @@
   const overlay=document.getElementById("overlay"), timerCard=document.getElementById("timerCard");
   const RING=2*Math.PI*92;
   function openTimer(kid,chore){
+    stopT();   // clear any stale interval from a previous timer before opening a new one
     timer.kidId=kid.id;timer.choreId=chore.id;timer.total=timer.remaining=chore.secs;timer.running=false;
     timerCard.innerHTML=`
       <h3>${chore.emoji} ${esc(chore.name)}</h3>
@@ -431,7 +432,7 @@
     tg.textContent=timer.running?"Pause":(timer.remaining<timer.total&&timer.remaining>0?"Resume":"Start");
     tg.classList.toggle("run",timer.running);
   }
-  function startT(){if(timer.remaining<=0){timer.remaining=timer.total;}timer.running=true;timer.int=setInterval(()=>{
+  function startT(){if(timer.int)clearInterval(timer.int);if(timer.remaining<=0){timer.remaining=timer.total;}timer.running=true;timer.int=setInterval(()=>{
     timer.remaining--;if(timer.remaining<=0){timer.remaining=0;stopT();beep();navigator.vibrate&&navigator.vibrate([180,90,180]);}paintTimer();},1000);}
   function stopT(){timer.running=false;clearInterval(timer.int);timer.int=null;}
 
