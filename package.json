@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node build.mjs && node test/pom-pond.test.mjs ./public/index.html && node test/economy.test.mjs",
+    "test": "node build.mjs && node test/pom-pond.test.mjs ./public/index.html && node test/economy.test.mjs && node test/critter-golden.test.mjs",
     "test:rules": "firebase emulators:exec --only firestore --project demo-pom-pond \"node test/rules.test.mjs\"",
     "test:all": "npm test && npm run test:rules",
     "dev": "firebase emulators:start",
