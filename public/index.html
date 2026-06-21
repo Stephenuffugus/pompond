@@ -121,7 +121,8 @@
   @keyframes ripple{0%{transform:scale(.4);opacity:.0}25%{opacity:.55}100%{transform:scale(2.1);opacity:0}}
   .pond .empty{position:absolute;inset:0;display:grid;place-items:center;color:#f1fffd;font-weight:800;text-align:center;padding:20px;font-size:15px;text-shadow:0 2px 8px rgba(0,30,45,.45)}
   .critter{position:absolute;width:64px;height:64px;animation:bob 6s ease-in-out infinite;
-    filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
+    cursor:grab;touch-action:none;filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
+  .critter.dragging{animation:none;z-index:6;cursor:grabbing;filter:drop-shadow(0 12px 9px rgba(0,40,40,.4))}
   .critter::after{content:"";position:absolute;left:14%;right:14%;bottom:-7px;height:8px;border-radius:50%;
     background:rgba(6,40,56,.28);filter:blur(2px)}
   @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
@@ -788,6 +789,11 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
      ============================================================ */
   let revealQ=[];
   let pondZoom=1, pondPanX=0, pondPanY=0;   // pond view state — persists across re-renders
+  // Where the kid has dragged each critter (x%,y% per critter id). This is a
+  // per-DEVICE view preference in localStorage — kids can't write economy state
+  // (rules deny it), and a critter's spot is cosmetic, not shared family data.
+  let critterPos=(()=>{ try{ return JSON.parse(localStorage.getItem("pp_critterpos")||"{}")||{}; }catch(e){ return {}; } })();
+  function saveCritterPos(){ try{ localStorage.setItem("pp_critterpos",JSON.stringify(critterPos)); }catch(e){} }
   const today=()=>Economy.today();
   const isDoneToday=(kid,chore)=>Economy.isDoneToday(fam,kid,chore);
 
@@ -986,7 +992,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       <div class="label"><span>Do a chore</span><span class="ln"></span></div>
       <div class="chore-list" id="cl"></div>
       ${adultChores().length?`<div class="label"><span>Grown-ups are doing chores too 💪</span><span class="ln"></span></div><div class="rows" id="adultcl"></div>`:""}
-      <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Fill your reward ponds for prizes!</div>`;
+      <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Drag critters to move them, tap to see what they're for!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
@@ -1041,11 +1047,13 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     if(!list.length){const em=document.createElement("div");em.className="empty";
       em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";stage.appendChild(em);}
     else list.forEach((c,i)=>{const w=document.createElement("div");w.className="critter";
-      w.style.left=(10+(i*29)%72)+"%"; w.style.top=(22+(i*43)%54)+"%";
-      w.style.animationDelay=(i%6)*0.4+"s"; w.style.cursor="pointer";
+      const sp=critterPos[c.id];
+      w.style.left=(sp?sp.x:(10+(i*29)%72))+"%"; w.style.top=(sp?sp.y:(22+(i*43)%54))+"%";
+      w.style.animationDelay=(i%6)*0.4+"s";
       w.style.transform=`scale(${1+c.rarity*0.12})`;
       w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity);
-      w.onclick=()=>{ if(pond._ppDragged) return; inspectCritter(c); }; stage.appendChild(w);});
+      makeCritterDraggable(w,c,pond);
+      stage.appendChild(w);});
     pond.appendChild(stage);
     const count=document.createElement("div");count.className="pondcount";count.textContent=all.length+" 🪷";pond.appendChild(count);
     if(list.length){
@@ -1054,6 +1062,37 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       pond.appendChild(zc);
       setupPondZoom(pond,stage);
     } else { pondZoom=1; pondPanX=pondPanY=0; stage.style.transform=""; }
+  }
+  // Drag a critter to a new spot (helps when they overlap — drag to untangle,
+  // then tap the one you want). A real drag suppresses the tap-to-inspect; a
+  // plain tap still inspects. Position is saved per-device (critterPos).
+  function makeCritterDraggable(w,c,pond){
+    w.onpointerdown=(e)=>{
+      e.stopPropagation();                 // don't let the pond start a pan
+      const sx=e.clientX, sy=e.clientY, pr=pond.getBoundingClientRect();
+      const startL=parseFloat(w.style.left)||0, startT=parseFloat(w.style.top)||0;
+      let moved=false; w._dragged=false;
+      try{ w.setPointerCapture(e.pointerId); }catch(_){}
+      const move=(ev)=>{
+        const dx=ev.clientX-sx, dy=ev.clientY-sy;
+        if(!moved && Math.abs(dx)+Math.abs(dy)>5){ moved=true; w.classList.add("dragging"); }
+        if(!moved) return;
+        let nx=startL+(dx/pondZoom)/pr.width*100, ny=startT+(dy/pondZoom)/pr.height*100;
+        nx=Math.max(2,Math.min(90,nx)); ny=Math.max(6,Math.min(86,ny));
+        w.style.left=nx+"%"; w.style.top=ny+"%";
+      };
+      const up=()=>{
+        window.removeEventListener("pointermove",move);
+        window.removeEventListener("pointerup",up);
+        window.removeEventListener("pointercancel",up);
+        w.classList.remove("dragging");
+        if(moved){ w._dragged=true; critterPos[c.id]={x:parseFloat(w.style.left),y:parseFloat(w.style.top)}; saveCritterPos(); }
+      };
+      window.addEventListener("pointermove",move);
+      window.addEventListener("pointerup",up);
+      window.addEventListener("pointercancel",up);
+    };
+    w.onclick=()=>{ if(w._dragged){ w._dragged=false; return; } if(pond._ppDragged) return; inspectCritter(c); };
   }
   // Pinch / wheel / button zoom + drag-to-pan. Zoom state lives in module vars so
   // it survives the re-render paintPond does on every state change.
