@@ -26,10 +26,10 @@
   const doneKey=(kid,chore,now)=>kid.id+"|"+chore.id+"|"+today(now);
   const isDoneToday=(fam,kid,chore,now)=>!!fam.done[doneKey(kid,chore,now)];
 
-  function addCritter(fam,ownerId,rarity,special,tag,reveals){
+  function addCritter(fam,ownerId,rarity,special,tag,reveals,reason){
     const arch=CritterEngine.randomArchetype();
     const c={id:id(),ownerId,seed:ownerId+":"+Date.now()+":"+Math.random().toString(36).slice(2),
-             archetype:arch,rarity,special:!!special,tag:tag||null,createdAt:Date.now()};
+             archetype:arch,rarity,special:!!special,tag:tag||null,reason:reason||null,createdAt:Date.now()};
     fam.critters.push(c); if(reveals)reveals.push(c); return c;
   }
   function grant(fam,kid,tier){ fam.inventory.push({id:id(),ownerId:kid.id,tier,status:"ready",at:Date.now()}); }
@@ -47,7 +47,11 @@
     opts=opts||{};
     kid.palms=(kid.palms||0)+1;
     bumpStreak(fam,kid);
-    addCritter(fam,kid.id,opts.special?1:0,opts.special,opts.special?opts.type:null,reveals);
+    // why this critter exists, in plain words — so a kid can tap it and remember.
+    const reason=opts.type==="kindness"?("A kind thing"+(opts.note?" — "+opts.note:""))
+      :opts.type==="school"?("School"+(opts.note?" — "+opts.note:""))
+      :(opts.note||"Did a chore");
+    addCritter(fam,kid.id,opts.special?1:0,opts.special,opts.special?opts.type:null,reveals,reason);
     kid.buckets.s++;
     logEvent(fam,kid,opts.type||"chore",opts.note,opts.byUid);
     checkSmall(fam,kid,reveals);
@@ -57,7 +61,7 @@
     if(kid.buckets.s>=cap){
       kid.buckets.s-=cap;
       grant(fam,kid,"small");
-      addCritter(fam,kid.id,1,false,null,reveals);   // fused tier-1 critter
+      addCritter(fam,kid.id,1,false,null,reveals,"Bonus for filling the Small bucket 🪣");   // fused tier-1 critter
       kid.buckets.m++;
       checkMedium(fam,kid,reveals);
     }
@@ -67,7 +71,7 @@
     if(kid.buckets.m>=cap){
       kid.buckets.m-=cap;
       grant(fam,kid,"medium");
-      addCritter(fam,kid.id,2,false,null,reveals);
+      addCritter(fam,kid.id,2,false,null,reveals,"Reward for filling the Medium bucket 🛢️");
       kid.choices=(kid.choices||0)+1;                // HYBRID: queue save-vs-keep
     }
   }
@@ -80,7 +84,7 @@
     if(kid.buckets.b>=cap){
       kid.buckets.b-=cap;
       grant(fam,kid,"big");
-      addCritter(fam,kid.id,3,false,null,reveals);   // showpiece
+      addCritter(fam,kid.id,3,false,null,reveals,"Showpiece for filling the Big bucket 🏆");   // showpiece
     }
   }
 

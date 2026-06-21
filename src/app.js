@@ -400,9 +400,11 @@
     apply(false);
   }
   function inspectCritter(c){
+    const reason=c.reason?esc(c.reason):null;
     openSheet(`<h3 style="text-align:center">${CritterEngine.name(c.archetype)}</h3>
       <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity)}</div>
-      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 14px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="school"?" · 🏫 School "+esc(cname()):" · ✨ Kindness critter"):""}</p>
+      <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="school"?" · 🏫 School "+esc(cname()):" · ✨ Kindness critter"):""}</p>
+      <div class="critreason">${reason?`<span class="rlbl">Earned for</span>${reason}`:`An early critter 🐣`}</div>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
   }
   // Kid taps their Pom count → a plain-language history of what each Pom was for.
