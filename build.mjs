@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const src = (f) => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8');
 
 // Order matters: store + engine + economy must be defined before app runs.
-const ORDER = ['store.js', 'critter-engine.js', 'economy.js', 'emoji-data.js', 'app.js'];
+const ORDER = ['store.js', 'critter-engine.js', 'evolution.js', 'economy.js', 'emoji-data.js', 'app.js'];
 const core = ORDER.map(f => `\n/* ===== src/${f} ===== */\n` + src(f)).join('\n');
 
 const shell = src('shell.html');
@@ -34,7 +34,7 @@ console.log(`build: wrote ${path.relative(__dirname, dest)} (${(out.length/1024)
 // Sync them into the Cloud Functions package so the server runs identical math.
 const sharedDir = path.join(__dirname, 'functions', 'shared');
 fs.mkdirSync(sharedDir, { recursive: true });
-for (const f of ['critter-engine.js', 'economy.js']) {
+for (const f of ['critter-engine.js', 'evolution.js', 'economy.js']) {
   fs.copyFileSync(path.join(__dirname, 'src', f), path.join(sharedDir, f));
 }
 console.log('build: synced shared modules -> functions/shared/');

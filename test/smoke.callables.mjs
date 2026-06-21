@@ -83,6 +83,7 @@ const myCrit = critDocs.filter(d=>d.data().ownerId==='k1').slice(0,2).map(d=>d.i
 const beforeN = critDocs.length;
 const fz = await K.call('combineCritters')({ critterIds: myCrit });
 ok('combineCritters returns the fused child as a reveal', Array.isArray(fz.reveals) && fz.reveals.length===1 && fz.reveals[0].tag==='combo');
+ok('fused child climbed to tier 1 (evolution)', fz.reveals[0].tier === 1);
 const afterDocs = (await getDocs(collection(P.db,`families/${fid}/critters`))).docs;
 ok('fusion is a Firestore sink (2 consumed, 1 created → net -1)', afterDocs.length === beforeN-1);
 ok('parents gone + combo child persisted', !afterDocs.find(d=>d.id===myCrit[0]) && !afterDocs.find(d=>d.id===myCrit[1]) && afterDocs.some(d=>d.data().tag==='combo'));

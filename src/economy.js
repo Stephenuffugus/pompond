@@ -16,10 +16,12 @@
 (function (root, factory) {
   const CritterEngine = root.CritterEngine ||
     (typeof require !== 'undefined' ? require('./critter-engine.js') : null);
-  const mod = factory(CritterEngine);
+  const Evolution = root.Evolution ||
+    (typeof require !== 'undefined' ? require('./evolution.js') : null);
+  const mod = factory(CritterEngine, Evolution);
   if (typeof module !== 'undefined' && module.exports) module.exports = mod;
   root.Economy = mod;
-})(typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this), function (CritterEngine) {
+})(typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this), function (CritterEngine, Evolution) {
 
   function id(){return Math.random().toString(36).slice(2,9);}
   function today(now){return new Date(now||Date.now()).toISOString().slice(0,10);}
@@ -29,7 +31,7 @@
   function addCritter(fam,ownerId,rarity,special,tag,reveals,reason){
     const arch=CritterEngine.randomArchetype();
     const c={id:id(),ownerId,seed:ownerId+":"+Date.now()+":"+Math.random().toString(36).slice(2),
-             archetype:arch,rarity,special:!!special,tag:tag||null,reason:reason||null,createdAt:Date.now()};
+             archetype:arch,rarity,special:!!special,tag:tag||null,reason:reason||null,tier:0,createdAt:Date.now()};
     fam.critters.push(c); if(reveals)reveals.push(c); return c;
   }
   function grant(fam,kid,tier){ fam.inventory.push({id:id(),ownerId:kid.id,tier,status:"ready",at:Date.now()}); }
@@ -119,8 +121,9 @@
     const archetype=CritterEngine.archetypeFor(seed);
     const maxR=parents.reduce((m,p)=>Math.max(m,p.rarity||0),0);
     const rarity=Math.min(3, maxR + (parents.length>=3 ? 2 : 1));
+    const tier=Evolution ? Evolution.childTier(parents.map(p=>p.tier||0), parents.length) : 0;
     const names=parents.map(p=>CritterEngine.name(p.archetype)).join(' + ');
-    return { seed, archetype, rarity, special:true, tag:'combo', reason:'Combined from '+names };
+    return { seed, archetype, rarity, tier, special:true, tag:'combo', reason:'Combined from '+names };
   }
   // Local-mode fusion: remove the parents from fam, append the child. Returns the
   // child (or {reject}). The server does the same via the Admin SDK (doc ops).

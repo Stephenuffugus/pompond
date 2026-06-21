@@ -93,6 +93,12 @@ ok('combine is deterministic + order-independent', m1.seed===m2.seed && m1.arche
 // 3-fuse jumps rarity further (max+2), capped at 3
 const m3 = Economy.makeCombo([{seed:'1',archetype:'frog',rarity:1},{seed:'2',archetype:'duck',rarity:0},{seed:'3',archetype:'koi',rarity:0}]);
 ok('3-fuse rarity = max+2 (1→3)', m3.rarity === 3);
+// evolution tier climbs: 2-fuse = best+1, 3-fuse = best+2
+ok('hatched critters start at tier 0', addCritterTier() === 0);
+ok('2-fuse of tier-0 → tier 1', cres.child.tier === 1);
+ok('3-fuse of tier-0 → tier 2', m3.tier === 2);
+ok('combining higher tiers climbs (t2 + t2 → t3)', Economy.makeCombo([{seed:'x',archetype:'frog',rarity:0,tier:2},{seed:'y',archetype:'koi',rarity:0,tier:2}]).tier === 3);
+function addCritterTier(){ const f=freshFam(); const rv=[]; Economy.earn(f, kid(f), {type:'chore'}, rv); return f.critters[0].tier; }
 // can't fuse another kid's critter / need 2+
 let cf2 = freshFam(); cf2.critters = cf.critters.slice();
 ok('rejects fusing a non-owned critter', !!Economy.combine(cf2, kid(cf2), ['c','x'], []).reject);
