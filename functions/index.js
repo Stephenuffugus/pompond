@@ -38,13 +38,9 @@ function requireParent(req) {
   if (!fid || a.token.role !== 'parent') throw new HttpsError('permission-denied', 'Parents only.');
   return { uid: a.uid, fid };
 }
-function requireChild(req) {
-  const a = requireAuth(req);
-  const fid = a.token.familyId, memberId = a.token.memberId;
-  if (!fid || a.token.role !== 'child' || !memberId)
-    throw new HttpsError('permission-denied', 'Child device not bound.');
-  return { uid: a.uid, fid, memberId };
-}
+// (requireChild removed — every economy action now supports a parent acting on a
+// kid's behalf, the default shared-phone mode. A child-only gate silently broke
+// those actions and caused infinite-retry loops. Do not reintroduce it.)
 function code6() {
   const C = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no ambiguous chars
   let s = ''; for (let i = 0; i < 6; i++) s += C[Math.floor(Math.random() * C.length)];

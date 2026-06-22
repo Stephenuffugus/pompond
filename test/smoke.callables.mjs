@@ -99,6 +99,11 @@ ok('fusion archives parents + adds child (net +1, nothing deleted)', afterDocs.l
 ok('parents kept as fused + combo child persisted', afterDocs.find(d=>d.id===myCrit[0]).data().fused===true && afterDocs.find(d=>d.id===myCrit[1]).data().fused===true && afterDocs.some(d=>d.data().tag==='combo'));
 await throws('combine rejects fewer than 2 critters', K.call('combineCritters')({ critterIds:[myCrit[0]] }));
 await throws('combine rejects critters that are not the kid\'s', K.call('combineCritters')({ critterIds:['nope1','nope2'] }));
+// a PARENT in the kid's pond (shared-phone) can Mix on the kid's behalf — the hero
+// feature must not silently fail for the most common operator.
+const pCrit = (await getDocs(collection(P.db,`families/${fid}/critters`))).docs.filter(d=>d.data().ownerId==='k1'&&!d.data().fused).slice(0,2).map(d=>d.id);
+const pfz = await P.call('combineCritters')({ memberId:'k1', critterIds: pCrit });
+ok('parent can Mix on a kid\'s behalf', Array.isArray(pfz.reveals) && pfz.reveals.length===1 && pfz.reveals[0].tag==='combo');
 
 // ---------- redeem (kid) → deliver (parent) ----------
 const smallReady = inv.find(i => i.tier==='small' && i.status==='ready');
