@@ -13,8 +13,16 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = mod;
   root.Evolution = mod;
 })(typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
-  const TIERS = ['Hatchling','Sprout','Bloom','Sprite','Glimmer','Radiant','Prism','Mythic','Ancient','Astral','Celestial','Eternal'];
-  const MAX = TIERS.length - 1;                 // top of the ladder (clamp target)
+  // The ladder. The FIRST 12 are the original names in their original order —
+  // never reorder them or existing critters' tier LABELS would shift. New rungs
+  // are APPEND-ONLY after index 11, giving a very high ceiling (years of climbing).
+  const TIERS = [
+    'Hatchling','Sprout','Bloom','Sprite','Glimmer','Radiant','Prism','Mythic','Ancient','Astral','Celestial','Eternal',
+    'Empyrean','Phoenix','Drake','Primal','Titan','Colossus','Aurora','Stellar','Nebula','Quasar','Pulsar','Seraph',
+    'Empyreal','Divine','Cosmic','Galactic','Vortex','Zenith','Paragon','Sovereign','Immortal','Transcendent','Infinite',
+    'Omega','Genesis','Eclipse','Singularity','Apex'
+  ];
+  const MAX = TIERS.length - 1;                 // top of the ladder (clamp target) = 40
   function tierName(t){ t = Math.max(0, t|0); return TIERS[t] || ('Tier ' + (t + 1)); }
   // Where a fused child lands: climb +1 (2-fuse) or +2 (3-fuse) above the best parent, capped.
   function childTier(parentTiers, n){

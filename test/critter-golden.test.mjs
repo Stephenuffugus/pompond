@@ -23,6 +23,11 @@ for (const arch of CritterEngine.list) for (let r=0; r<=3; r++) {
   const seed = 'gold:'+arch+':'+r;
   cur[arch+'@'+r] = h(CritterEngine.render(seed, arch, r));
 }
+// Lock the TIER prestige overlay too (one cell per prestige stage, a few species),
+// so escalating-tier visuals can't silently regress. tier 0 is already covered above.
+for (const arch of ['fox','frog','dragon','owl']) for (const tier of [2,5,8,12,17,22,28,34,40]) {
+  cur[arch+'@3#t'+tier] = h(CritterEngine.render('gold:'+arch+':3', arch, 3, { tier }));
+}
 
 if (!fs.existsSync(GOLD)) {
   fs.writeFileSync(GOLD, JSON.stringify(cur, null, 0));

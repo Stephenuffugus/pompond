@@ -278,6 +278,51 @@
     if(b==='bubbles')return `<defs><radialGradient id="bg${c}" cx="50%" cy="40%" r="78%"><stop offset="0%" stop-color="#d9f4ef"/><stop offset="100%" stop-color="#a3dde6"/></radialGradient></defs><rect width="100" height="100" rx="22" fill="url(#bg${c})"/><circle cx="20" cy="30" r="5" fill="#fff" opacity=".25"/><circle cx="81" cy="24" r="7" fill="#fff" opacity=".22"/><circle cx="72" cy="63" r="4" fill="#fff" opacity=".25"/><circle cx="27" cy="71" r="6" fill="#fff" opacity=".2"/>`;
     return '';}
 
+  /* ============================================================
+     TIER PRESTIGE VISUALS — a critter visibly GROWS GRANDER as it climbs
+     the combine ladder. tier<=0 adds NOTHING (byte-identical to legacy →
+     golden-safe). Higher tiers unlock CUMULATIVE flourishes (glow → gem →
+     wings → halo → flames → crown+star-ring → prismatic → cosmic), drawn
+     from a DEDICATED rng so the body/sparkle streams are untouched. The
+     8 prestige stages spread across the long ladder, so each climb is a
+     visible glow-up — fusing high critters feels genuinely special.
+     ============================================================ */
+  function tierStage(tier){ tier=tier|0;
+    if(tier<=0)return 0; if(tier<4)return 1; if(tier<7)return 2; if(tier<11)return 3;
+    if(tier<15)return 4; if(tier<20)return 5; if(tier<25)return 6; if(tier<31)return 7; return 8; }
+  const TIER_HUE=[0,48,150,188,270,330,45,300,250];   // glow hue per prestige stage
+  function tWings(id,hue,stage){const s=f1(0.92+stage*0.05);
+    return `<defs><linearGradient id="w${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="hsl(${hue},92%,84%)"/><stop offset="100%" stop-color="hsl(${hue},86%,60%)"/></linearGradient></defs>`+
+      `<g transform="translate(50 60) scale(${s})" opacity=".82"><path d="M0 0 q-26 -19 -34 1 q-4 17 12 19 q15 1 22 -11z" fill="url(#w${id})"/><path d="M0 0 q26 -19 34 1 q4 17 -12 19 q-15 1 -22 -11z" fill="url(#w${id})"/><path d="M-2 1 q-16 -10 -26 2 M2 1 q16 -10 26 2" stroke="hsl(${hue},85%,96%)" stroke-width="1" fill="none" opacity=".55"/></g>`;}
+  function tGem(id,hue){return `<g transform="translate(50 64)"><path d="M0 -5 l4.5 3.5 -4.5 8 -4.5 -8z" fill="hsl(${hue},96%,66%)" stroke="#fff" stroke-width="0.8"/><path d="M0 -5 l4.5 3.5 -2.2 0z" fill="#fff" opacity=".65"/></g>`;}
+  function tHalo(hue,ax,ay){const y=f1(ay-5);return `<ellipse cx="${ax}" cy="${y}" rx="13" ry="4.3" fill="none" stroke="hsl(${hue},96%,72%)" stroke-width="2.6" opacity=".92"/><ellipse cx="${ax}" cy="${y}" rx="13" ry="4.3" fill="none" stroke="#fff" stroke-width="0.8" opacity=".75"/>`;}
+  function tCrown(x,y,hue){return `<g transform="translate(${f1(x)} ${f1(y)})"><path d="M-12 4 l0 -11 5 5 7 -12 7 12 5 -5 0 11z" fill="#FFD64B" stroke="#E0A100" stroke-width="1"/><circle cx="-7" cy="-3" r="1.7" fill="hsl(${hue},92%,64%)"/><circle cx="0" cy="-6" r="2" fill="#ff5d8f"/><circle cx="7" cy="-3" r="1.7" fill="hsl(${(hue+60)%360},92%,64%)"/></g>`;}
+  // assemble the full prestige overlay; returns {back,wings,front,spark} fragments
+  function tierFx(seed,t,tier,ax,ay){
+    const stage=tierStage(tier); if(!stage)return {back:'',wings:'',front:'',spark:''};
+    const rt=rng(seed+'~tier'); const id=t.uid, hue=TIER_HUE[stage]; let back='',wings='',front='',spark='';
+    // stage7+: cosmic ray backdrop (drawn behind everything)
+    if(stage>=7){let rays='';for(let i=0;i<12;i++){const a=i*30+rt()*8;rays+=`<path d="M50 56 L${f1(50+53*Math.cos(a*Math.PI/180))} ${f1(56+53*Math.sin(a*Math.PI/180))}" stroke="hsl(${(hue+i*10)%360},92%,70%)" stroke-width="${i%2?1.4:2.6}" opacity="${i%2?'.16':'.26'}"/>`;}back+=`<g>${rays}</g>`;}
+    // stage1+: themed prestige glow halo behind the critter
+    back+=`<defs><radialGradient id="tg${id}"><stop offset="46%" stop-color="hsl(${hue},92%,64%,0)"/><stop offset="100%" stop-color="hsl(${hue},94%,58%,${(0.2+stage*0.03).toFixed(2)})"/></radialGradient></defs><circle cx="50" cy="56" r="49" fill="url(#tg${id})"/>`;
+    // stage5+: energy plumes behind the body
+    if(stage>=5)back+=`<g opacity=".6">`+[-1,1].map(s=>`<path d="M50 72 q${s*22} 4 ${s*15} -24 q${s*-3} 15 ${s*-9} 20z" fill="hsl(${(hue+28)%360},94%,62%)"/>`).join('')+`</g>`;
+    // stage3+: wings behind the critter
+    if(stage>=3)wings=tWings(id,hue,stage);
+    // stage2+: chest gem
+    if(stage>=2)front+=tGem(id,hue);
+    // stage1+: orbiting motes (count grows with stage)
+    {const n=Math.min(11,2+stage);for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2+rt()*0.6,rad=40+rt()*7,x=f1(50+rad*Math.cos(a)),y=f1(56+rad*Math.sin(a)),rr=f1(1+rt()*1.6);front+=`<circle cx="${x}" cy="${y}" r="${rr}" fill="hsl(${(hue+i*22)%360},96%,72%)" opacity=".9"/>`;}}
+    // stage4+: halo above the head
+    if(stage>=4)front+=tHalo(hue,ax,ay);
+    // stage6+: orbiting star ring + a prestige crown above the head
+    if(stage>=6){let sr='';const n=stage>=8?8:6;for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2;sr+=star(f1(50+46*Math.cos(a)),f1(56+46*Math.sin(a)),2.4,`hsl(${(hue+i*30)%360},96%,72%)`);}front+=`<g opacity=".95">${sr}</g>`+tCrown(ax,ay-13,hue);}
+    // stage7+: prismatic shimmer ring on top
+    if(stage>=7)front+=`<defs><linearGradient id="pr${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ff8ad8" stop-opacity=".55"/><stop offset="50%" stop-color="#8ad0ff" stop-opacity=".25"/><stop offset="100%" stop-color="#9affc8" stop-opacity=".55"/></linearGradient></defs><circle cx="50" cy="56" r="47" fill="none" stroke="url(#pr${id})" stroke-width="3.5"/>`;
+    spark=sparkles(t,Math.min(11,3+stage),rt);
+    return {back,wings,front,spark};
+  }
+
   function render(seed,archetype,rarity,opts){
     rarity=(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0;   // normalize to 0–3 so aura visuals & rarityName always agree (identity for valid inputs)
     if(!ARCH[archetype])archetype=KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)];
@@ -310,7 +355,10 @@
     // any background). Standard SVG filter — supported by every modern browser.
     const oid='o'+c;
     const outline=`<filter id="${oid}" x="-18%" y="-18%" width="136%" height="136%"><feMorphology in="SourceAlpha" operator="dilate" radius="2.2" result="d"/><feFlood flood-color="#ffffff" result="w"/><feComposite in="w" in2="d" operator="in" result="o"/><feMerge><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
-    return `<svg viewBox="0 0 100 100" width="100%" height="100%"><defs>${outline}</defs>${bg}${aura}<g filter="url(#${oid})">${inner}${accessory(t,ax,ay)}</g>${spark}</svg>`;
+    // TIER prestige overlay — empty at tier 0 (→ byte-identical legacy output).
+    const tier=(opts&&opts.tier)|0, tfx=tier?tierFx(seed,t,tier,ax,ay):null;
+    if(!tfx) return `<svg viewBox="0 0 100 100" width="100%" height="100%"><defs>${outline}</defs>${bg}${aura}<g filter="url(#${oid})">${inner}${accessory(t,ax,ay)}</g>${spark}</svg>`;
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%"><defs>${outline}</defs>${bg}${tfx.back}${aura}${tfx.wings}<g filter="url(#${oid})">${inner}${accessory(t,ax,ay)}</g>${tfx.front}${spark}${tfx.spark}</svg>`;
   }
 
   return {render,list:KEYS,randomArchetype:()=>KEYS[Math.floor(Math.random()*KEYS.length)],
