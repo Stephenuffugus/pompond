@@ -13,9 +13,11 @@
      child:  { familyId, memberId, role:'child' }
    ============================================================================ */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
+const { getMessaging } = require('firebase-admin/messaging');
 
 const Economy = require('./shared/economy.js');
 const CritterEngine = require('./shared/critter-engine.js'); // loaded so Economy can mint
@@ -469,12 +471,73 @@ exports.deleteFamily = onCall(async (req) => {
   if (parentCode) await db.collection('parentCodes').doc(parentCode).delete().catch(()=>{});
   for (const pc of Object.keys(fam.parentCodes || {})) await db.collection('parentCodes').doc(pc).delete().catch(()=>{});
   { let batch = db.batch(), n = 0; for (const d of binds.docs) { batch.delete(d.ref); if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; } } if (n) await batch.commit(); }
+  // push tokens for this family
+  const pt = await db.collection('pushTokens').where('fid', '==', fid).get();
+  { let batch = db.batch(), n = 0; for (const d of pt.docs) { batch.delete(d.ref); if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; } } if (n) await batch.commit(); }
   // the family doc itself
   await ref.delete();
   // revoke claims + delete auth users (parents + bound kid devices)
   const uids = new Set([...(fam.parentUids || [uid]), ...childAuthIds, ...binds.docs.map(d => d.id)]);
   for (const u of uids) { try { await auth.setCustomUserClaims(u, {}); } catch(e){} try { await auth.deleteUser(u); } catch(e){} }
   return { ok: true };
+});
+
+/* ---------------- web push (daily reminders) ---------------- */
+// Push tokens live in a top-level `pushTokens` collection so the scheduler can
+// sweep them all. Doc id is derived from the token so re-registering updates in
+// place. No child PII — just {token, fid, tzOffsetMin, hour}.
+const tokenId = (tok) => Buffer.from(String(tok)).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 80);
+async function sendPush(tokens, title, body, link) {
+  if (!tokens.length) return 0;
+  const msgs = tokens.map(t => ({ token: t,
+    data: { title, body, link: link || '/index.html', tag: 'pompond' },
+    webpush: { fcmOptions: { link: link || '/index.html' } } }));
+  let ok = 0;
+  for (let i = 0; i < msgs.length; i += 500) {
+    const res = await getMessaging().sendEach(msgs.slice(i, i + 500));
+    ok += res.successCount;
+    res.responses.forEach((r, idx) => {            // prune dead tokens
+      const code = r.success ? '' : (r.error && r.error.code) || '';
+      if (code.includes('not-registered') || code.includes('invalid-argument') || code.includes('invalid-registration'))
+        db.collection('pushTokens').doc(tokenId(msgs[i + idx].token)).delete().catch(() => {});
+    });
+  }
+  return ok;
+}
+exports.registerPush = onCall(async (req) => {
+  const a = requireAuth(req); const fid = a.token.familyId;
+  if (!fid) throw new HttpsError('permission-denied', 'No family.');
+  const { token, tzOffsetMin, hour } = req.data || {};
+  if (!token || typeof token !== 'string') throw new HttpsError('invalid-argument', 'token required.');
+  await db.collection('pushTokens').doc(tokenId(token)).set({
+    token, fid, tzOffsetMin: Number(tzOffsetMin) || 0,
+    hour: Math.max(0, Math.min(23, Math.floor(Number(hour)) || 16)), at: Date.now()
+  });
+  return { ok: true };
+});
+exports.unregisterPush = onCall(async (req) => {
+  requireAuth(req);
+  const token = req.data && req.data.token;
+  if (token) await db.collection('pushTokens').doc(tokenId(token)).delete().catch(() => {});
+  return { ok: true };
+});
+exports.sendTestPush = onCall(async (req) => {
+  const { fid } = requireParent(req);
+  const snap = await db.collection('pushTokens').where('fid', '==', fid).get();
+  const sent = await sendPush(snap.docs.map(d => d.data().token), 'Pom Pond 🐸', 'Reminders are on — this is a test! ✅');
+  return { sent };
+});
+// Hourly sweep: send each opted-in device a gentle reminder at its LOCAL chosen hour.
+exports.dailyReminder = onSchedule('every 60 minutes', async () => {
+  const now = new Date();
+  const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const snap = await db.collection('pushTokens').get();
+  const due = [];
+  snap.docs.forEach(d => { const t = d.data();
+    const localMin = (((utcMin + (t.tzOffsetMin || 0)) % 1440) + 1440) % 1440;
+    if (Math.floor(localMin / 60) === (t.hour != null ? t.hour : 16)) due.push(t.token);
+  });
+  if (due.length) await sendPush(due, 'Pom Pond 🐸', 'Time for today’s chores — your pond is waiting!');
 });
 
 // Kid fuses 2–3 of their OWN critters into one new deterministic critter; the

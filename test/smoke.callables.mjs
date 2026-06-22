@@ -154,6 +154,15 @@ const older = await getDocs(query(collection(P.db, `families/${fid}/critters`), 
 const ids1 = new Set(recent.docs.map(d=>d.id));
 ok('load-older pages strictly older critters with no overlap', older.docs.length > 0 && older.docs.every(d => d.data().createdAt <= cur && !ids1.has(d.id)));
 
+// ---------- web push: token register/unregister callables succeed ----------
+// (pushTokens is server-only — client reads are denied by rules, as they should be)
+const reg = await P.call('registerPush')({ token: 'tok-smoke-123', tzOffsetMin: 0, hour: 16 });
+ok('registerPush succeeds for a family parent', reg && reg.ok === true);
+await throws('registerPush rejects an empty token', P.call('registerPush')({ token: '' }));
+const unreg = await P.call('unregisterPush')({ token: 'tok-smoke-123' });
+ok('unregisterPush succeeds', unreg && unreg.ok === true);
+await throws('client CANNOT read the server-only pushTokens collection', getDoc(doc(P.db, `pushTokens/x`)));
+
 // ---------- privacy-safe analytics + COPPA family deletion ----------
 const famBefore = (await getDoc(doc(P.db, `families/${fid}`))).data();
 ok('family has privacy-safe analytics counters (actions + lastActiveAt)', typeof famBefore.actions === 'number' && famBefore.actions > 0 && typeof famBefore.lastActiveAt === 'number');

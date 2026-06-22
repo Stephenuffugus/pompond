@@ -19,3 +19,9 @@ export const firebaseConfig = {
 
 // Set true while developing against the local emulator suite (firebase emulators:start).
 export const useEmulators = false;
+
+/* Web-push (FCM) public VAPID key. Get it from:
+   Firebase console → Project settings → Cloud Messaging → "Web Push certificates"
+   → copy the key pair's PUBLIC key. Daily reminders stay OFF until this is set
+   (the notifications toggle shows a "set it up in the console" hint instead). */
+export const vapidKey = "REPLACE_ME_VAPID_KEY";

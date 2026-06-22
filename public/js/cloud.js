@@ -9,7 +9,7 @@
    live family state arrives through onSnapshot. It is never loaded by the
    jsdom harness (no network), so the regression suite stays in local mode.
    ============================================================================ */
-import { firebaseConfig, useEmulators } from './firebase-config.js';
+import { firebaseConfig, useEmulators, vapidKey } from './firebase-config.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.13.0';
 const PP = window.PomPond;
@@ -45,11 +45,12 @@ if (!firebaseConfig || firebaseConfig.apiKey === 'REPLACE_ME' || !PP) {
 }
 
 async function bootCloud() {
-  const [{ initializeApp }, authMod, fsMod, fnMod] = await Promise.all([
+  const [{ initializeApp }, authMod, fsMod, fnMod, msgMod] = await Promise.all([
     import(`${SDK}/firebase-app.js`),
     import(`${SDK}/firebase-auth.js`),
     import(`${SDK}/firebase-firestore.js`),
     import(`${SDK}/firebase-functions.js`),
+    import(`${SDK}/firebase-messaging.js`).catch(() => null),   // optional (push)
   ]);
 
   const app = initializeApp(firebaseConfig);
@@ -83,7 +84,8 @@ async function bootCloud() {
   const fns = {};
   ['createFamily','regenJoinCode','setKidCode','bindDevice','completeChore','givePom',
    'resolveChoice','redeem','approvePending','denyPending','markGiven','resetProgress',
-   'joinFamilyAsParent','regenParentCode','combineCritters','deleteFamily']
+   'joinFamilyAsParent','regenParentCode','combineCritters','deleteFamily',
+   'registerPush','unregisterPush','sendTestPush']
     .forEach(n => fns[n] = call(n));
 
   const gate = document.getElementById('authgate');
@@ -168,6 +170,34 @@ async function bootCloud() {
       try { ['pomPondV1','choreCrewV2','pp_seen_welcome','pp_critterpos','pp_critterkeep','pp_routineceleb'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
       setTimeout(() => location.reload(), 500); return r;
     }),
+
+    // ---- Web push (daily reminders) ----
+    pushSupported: () => !!(msgMod && vapidKey && vapidKey.indexOf('REPLACE') < 0
+      && typeof Notification !== 'undefined' && 'serviceWorker' in navigator),
+    pushOn: () => { try { return localStorage.getItem('pp_push') === '1'; } catch (e) { return false; } },
+    enablePush: async (hour) => {
+      if (!cloud.fid) { PP.toast('Sign in first to get reminders'); return false; }
+      if (!cloud.pushSupported()) { PP.toast('Reminders need a Web-Push key set in the Firebase console first.'); return false; }
+      let perm = Notification.permission;
+      if (perm === 'default') perm = await Notification.requestPermission();
+      if (perm !== 'granted') { PP.toast('Notifications are turned off in your browser settings.'); return false; }
+      try {
+        const messaging = msgMod.getMessaging(app);
+        const token = await msgMod.getToken(messaging, { vapidKey });
+        if (!token) { PP.toast("Couldn't get a notification token"); return false; }
+        await fns.registerPush({ token, tzOffsetMin: -new Date().getTimezoneOffset(), hour: (hour | 0) });
+        msgMod.onMessage(messaging, (p) => { const d = (p && (p.data || p.notification)) || {}; PP.toast('🔔 ' + (d.body || d.title || 'Pom Pond')); });
+        try { localStorage.setItem('pp_push', '1'); localStorage.setItem('pp_pushtoken', token); } catch (e) {}
+        return true;
+      } catch (e) { console.warn('[PomPond] enablePush', e); PP.toast("Couldn't turn on reminders — try again"); return false; }
+    },
+    disablePush: async () => {
+      try { const t = localStorage.getItem('pp_pushtoken'); if (t) await fns.unregisterPush({ token: t }); } catch (e) {}
+      try { localStorage.removeItem('pp_push'); localStorage.removeItem('pp_pushtoken'); } catch (e) {}
+      return true;
+    },
+    sendTestPush: () => fns.sendTestPush({}),
+
     // Page in critters older than the live window (for the full collection view).
     // Family-wide + a single-field createdAt index → no composite index needed.
     loadOlder: (beforeCreatedAt, n) => fsMod.getDocs(fsMod.query(
