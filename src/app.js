@@ -97,6 +97,15 @@
   const member=mid=>fam.members.find(m=>m.id===mid);
   const me=()=>member(meId);
   const choresFor=kid=>fam.chores.filter(c=>!c.assignedTo||c.assignedTo===kid.id);
+  // ROUTINES — time-of-day buckets a chore can belong to + optional day-of-week schedule.
+  const ROUTINES=[{k:"morning",n:"Morning",e:"☀️"},{k:"day",n:"Anytime",e:"🌈"},{k:"bedtime",n:"Bedtime",e:"🌙"}];
+  const routineOf=c=>ROUTINES.find(r=>r.k===c.routine)||ROUTINES[1];   // default → Anytime
+  // c.days = weekday indices (0=Sun..6=Sat) the chore is active; empty/absent = every day.
+  const choreActiveToday=c=>!c.days||!c.days.length||c.days.includes(new Date().getDay());
+  let routineCeleb=(()=>{ try{ return JSON.parse(localStorage.getItem("pp_routineceleb")||"{}")||{}; }catch(e){ return {}; } })();
+  function celebrateRoutine(kid,r){ const key=kid.id+"|"+r.k+"|"+today(); if(routineCeleb[key])return; routineCeleb[key]=1;
+    try{ localStorage.setItem("pp_routineceleb",JSON.stringify(routineCeleb)); }catch(e){}
+    setTimeout(()=>{ confetti(); toast(r.e+" "+r.n+" routine complete! 🎉"); },300); }
   // chores assigned to a grown-up — visibility/accountability only (no economy).
   const adultChores=()=>fam.chores.filter(c=>{const m=member(c.assignedTo);return !!(m&&m.role==="parent");});
   const choreDoneToday=c=>c.doneDate===today();
@@ -272,12 +281,13 @@
     document.body.classList.remove("editing");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>Pom Pond</h1></div>
-        <span>${showInstall()?'<button class="iconbtn go" id="install">📲 Get app</button> ':''}${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}${kids().length?'<button class="iconbtn" id="wof">🏆 Family</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
+        <span>${showInstall()?'<button class="iconbtn go" id="install">📲 Get app</button> ':''}${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}${kids().length?'<button class="iconbtn" id="week">📅 Week</button> <button class="iconbtn" id="wof">🏆 Family</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
       <div class="label"><span>Who's here?</span><span class="ln"></span></div>
       <div class="lobby-grid" id="lg"></div>
       <div class="hint">Parents manage chores & rewards · kids do chores and grow their Pond</div>`;
     app.querySelector("#gallery").onclick=galleryModal;
     const wof=app.querySelector("#wof"); if(wof)wof.onclick=wallOfFame;
+    const wk=app.querySelector("#week"); if(wk)wk.onclick=weeklyRecap;
     const ib=app.querySelector("#install"); if(ib)ib.onclick=doInstall;
     const acct=app.querySelector("#acct"); if(acct&&Backend.cloud.accountSheet) acct.onclick=()=>Backend.cloud.accountSheet();
     const lg=app.querySelector("#lg");
@@ -387,11 +397,24 @@
     }
     paintPond(kid);
     const cl=app.querySelector("#cl");
-    choresFor(kid).forEach(c=>{const done=isDoneToday(kid,c);
-      const d=document.createElement("button");d.className="chore"+(done?" done":"");
-      d.innerHTML=`${done?'<span class="check">✓</span>':""}<span class="emo">${c.emoji}</span><span class="cn">${esc(c.name)}</span><span class="meta">${done?"Done today!":"⏱ "+fmt(c.secs)+" · "+pomIcon(13)+" "+c.palm}</span>`;
-      d.onclick=()=>{ if(done){toast("Already done today ✅");return;} openTimer(kid,c); };
-      cl.appendChild(d);});
+    // today's active chores, grouped into routine buckets (Morning / Anytime / Bedtime)
+    const todays=choresFor(kid).filter(choreActiveToday);
+    const multi=new Set(todays.map(c=>routineOf(c).k)).size>1;   // only show headers if >1 routine in play
+    ROUTINES.forEach(r=>{
+      const inR=todays.filter(c=>routineOf(c).k===r.k); if(!inR.length)return;
+      const doneN=inR.filter(c=>isDoneToday(kid,c)).length, all=doneN===inR.length;
+      if(multi){ const h=document.createElement("div"); h.className="routine-head"+(all?" done":"");
+        h.innerHTML=`<span class="rh-emo">${r.e}</span><span class="rh-n">${r.n}</span><span class="rh-prog">${all?"✓ all done!":doneN+"/"+inR.length}</span>`;
+        cl.appendChild(h); }
+      inR.forEach(c=>{const done=isDoneToday(kid,c);
+        const d=document.createElement("button");d.className="chore"+(done?" done":"");
+        d.innerHTML=`${done?'<span class="check">✓</span>':""}<span class="emo">${c.emoji}</span><span class="cn">${esc(c.name)}</span><span class="meta">${done?"Done today!":"⏱ "+fmt(c.secs)+" · "+pomIcon(13)+" "+c.palm}</span>`;
+        d.onclick=()=>{ if(done){toast("Already done today ✅");return;} openTimer(kid,c); };
+        cl.appendChild(d);});
+      if(all) celebrateRoutine(kid,r);   // fires once/day when a whole routine is finished
+    });
+    if(!todays.length){ const e=document.createElement("div"); e.className="hint"; e.style.textAlign="center";
+      e.innerHTML="No chores scheduled for today — enjoy! 🌟"; cl.appendChild(e); }
 
     const acl=app.querySelector("#adultcl");
     if(acl) adultChores().forEach(c=>{const who=member(c.assignedTo);const done=choreDoneToday(c);
@@ -612,7 +635,27 @@
       <text x="${W/2}" y="406" font-family="sans-serif" font-size="34" font-weight="800" fill="#214a45" text-anchor="middle">${esc(kid.name||'Kiddo')}</text>
       <text x="${W/2}" y="436" font-family="sans-serif" font-size="16" font-weight="700" fill="#5a7d78" text-anchor="middle">${shiny?'Shiny ':''}${esc(CritterEngine.name(c?c.archetype:'frog'))} · ${esc(tierTxt)}</text>
       ${pillSVG}
-      <text x="${W/2}" y="${H-34}" font-family="sans-serif" font-size="15" font-weight="700" fill="#5a7d78" text-anchor="middle">Earned by doing chores and being kind!</text>
+      <text x="${W/2}" y="${H-42}" font-family="sans-serif" font-size="15" font-weight="700" fill="#5a7d78" text-anchor="middle">Earned by doing chores and being kind!</text>
+      <text x="${W/2}" y="${H-20}" font-family="sans-serif" font-size="13" font-weight="800" fill="#3FA7A1" text-anchor="middle" letter-spacing="1">pom-pond.web.app</text>
+    </svg>`;
+  }
+  // Shareable family WEEKLY recap card (emoji-free text so it rasterizes cleanly).
+  function recapCardSVG(stats,tot){
+    const W=520,H=690; const plain=s=>String(s).replace(/[^\x00-\x7F]/g,"").trim()||"Poms"; const P=plain(cnames());
+    const block=(x,y,n,l)=>`<rect x="${x}" y="${y}" width="222" height="84" rx="16" fill="#ffffff" opacity=".82"/><text x="${x+111}" y="${y+44}" font-family="sans-serif" font-size="36" font-weight="800" fill="#214a45" text-anchor="middle">${n}</text><text x="${x+111}" y="${y+68}" font-family="sans-serif" font-size="14" font-weight="700" fill="#5a7d78" text-anchor="middle">${esc(l)}</text>`;
+    const blocks=block(W/2-230,150,tot.chores,"chores done")+block(W/2+8,150,tot.poms,P)+block(W/2-230,244,tot.hatched,"critters")+block(W/2+8,244,tot.kindness,"kind acts");
+    const lines=stats.slice(0,5).map((s,i)=>{const y=388+i*42;
+      return `<text x="42" y="${y}" font-family="sans-serif" font-size="19" font-weight="800" fill="#214a45">${esc(plain(s.k.name)||"Kiddo")}</text><text x="${W-42}" y="${y}" font-family="sans-serif" font-size="14" font-weight="700" fill="#5a7d78" text-anchor="end">${s.chores} chores  ${s.poms} ${P}  ${s.hatched} critters</text>`;}).join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+      <defs><linearGradient id="rbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#eafaf6"/><stop offset="100%" stop-color="#c9ece4"/></linearGradient></defs>
+      <rect width="${W}" height="${H}" rx="28" fill="url(#rbg)"/>
+      <rect x="12" y="12" width="${W-24}" height="${H-24}" rx="22" fill="none" stroke="#3FA7A1" stroke-width="3" opacity=".45"/>
+      <text x="${W/2}" y="58" font-family="sans-serif" font-size="26" font-weight="800" fill="#3FA7A1" text-anchor="middle" letter-spacing="2">POM POND</text>
+      <text x="${W/2}" y="90" font-family="sans-serif" font-size="19" font-weight="800" fill="#214a45" text-anchor="middle">Our Week</text>
+      <text x="${W/2}" y="116" font-family="sans-serif" font-size="14" font-weight="700" fill="#5a7d78" text-anchor="middle">the last 7 days</text>
+      ${blocks}${lines}
+      <text x="${W/2}" y="${H-42}" font-family="sans-serif" font-size="15" font-weight="700" fill="#5a7d78" text-anchor="middle">Chores and kindness, rewarded.</text>
+      <text x="${W/2}" y="${H-20}" font-family="sans-serif" font-size="13" font-weight="800" fill="#3FA7A1" text-anchor="middle" letter-spacing="1">pom-pond.web.app</text>
     </svg>`;
   }
   function bragCard(kid,c){
@@ -657,6 +700,43 @@
       <p style="font-weight:700;color:var(--soft);font-size:14px;margin:-6px 0 12px">Our family has earned <b style="color:var(--accent)">${totalPoms}</b> ${esc(cnames())} together! 🎉 Everyone's growing their own pond.</p>
       <div class="wofgrid">${tiles||'<div class="hint">Add some kids to start your wall!</div>'}</div>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{ s.querySelector(".cancel").onclick=closeSheet; });
+  }
+  // ---- Weekly recap: what each kid did in the last 7 days (parent-facing + shareable) ----
+  const EARN_TYPES=new Set(["chore","kindness","helping","effort","respect","school","family","custom"]);
+  function weekStats(){
+    const now=Date.now(), wk=now-7*864e5;
+    const recent=fam.log.filter(e=>(e.at||0)>=wk);
+    const wkSet=new Set(); for(let i=0;i<7;i++)wkSet.add(new Date(now-i*864e5).toISOString().slice(0,10));
+    const dayKeys=Object.keys(fam.done||{});
+    return kids().map(k=>{
+      const crit=crittersOf(k.id).filter(c=>(c.createdAt||0)>=wk);
+      const chores=dayKeys.filter(key=>{const p=key.split("|");return p[0]===k.id&&wkSet.has(p[2]);}).length;
+      const mine=recent.filter(e=>e.ownerId===k.id);
+      const poms=mine.filter(e=>EARN_TYPES.has(e.type)).length;
+      const kindness=mine.filter(e=>EARN_TYPES.has(e.type)&&e.type!=="chore").length;
+      const fusions=mine.filter(e=>e.type==="combine").length;
+      const shiny=crit.filter(c=>(typeof c.shiny==="boolean")?c.shiny:CritterEngine.isShiny(c.seed,c.archetype,c.rarity)).length;
+      const best=crit.reduce((a,c)=>!a?c:(((c.tier||0)*4+(c.rarity||0))>((a.tier||0)*4+(a.rarity||0))?c:a),null);
+      return {k,chores,poms,kindness,fusions,shiny,hatched:crit.length,best,streak:k.streak||0};
+    });
+  }
+  function weeklyRecap(){
+    const stats=weekStats();
+    const tot=stats.reduce((a,s)=>({chores:a.chores+s.chores,poms:a.poms+s.poms,kindness:a.kindness+s.kindness,hatched:a.hatched+s.hatched,fusions:a.fusions+s.fusions}),{chores:0,poms:0,kindness:0,hatched:0,fusions:0});
+    const cards=stats.map(s=>{
+      const art=s.best?`<div class="rcart">${renderCritter(s.best.seed,s.best.archetype,s.best.rarity,{tier:s.best.tier,shiny:s.best.shiny,variant:s.best.variant})}</div>`:`<div class="rcart" style="font-size:30px">${s.k.emoji||'🧒'}</div>`;
+      const stat=(n,l)=>`<div class="rcstat"><b>${n}</b><span>${l}</span></div>`;
+      return `<div class="rccard" style="--kc:${s.k.color}">${art}<div class="rcbody"><div class="rcname">${esc(s.k.name)}${s.streak?` · 🔥${s.streak}`:''}</div>
+        <div class="rcstats">${stat(s.chores,"chores")}${stat(s.poms,esc(cnames()))}${stat(s.hatched,"hatched")}${s.kindness?stat(s.kindness,"kind acts"):""}${s.fusions?stat(s.fusions,"mixes"):""}${s.shiny?stat(s.shiny,"✨"):""}</div></div></div>`;
+    }).join('');
+    openSheet(`<h3>📅 This Week</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-6px 0 12px">The last 7 days across the family — <b style="color:var(--accent)">${tot.chores}</b> chores, <b style="color:var(--accent)">${tot.poms}</b> ${esc(cnames())}, <b style="color:var(--accent)">${tot.hatched}</b> critters${tot.kindness?`, <b style="color:var(--accent)">${tot.kindness}</b> kind acts`:''}.</p>
+      <div class="rcwrap">${cards||'<div class="hint">Add some kids to see their week!</div>'}</div>
+      <div class="sa"><button class="cancel">Close</button>${stats.length?'<button class="save" id="recapshare">Share our week 📤</button>':''}</div>`,s=>{
+      s.querySelector(".cancel").onclick=closeSheet;
+      const rs=s.querySelector("#recapshare");
+      if(rs)rs.onclick=()=>askPin(ok=>{ if(ok) shareCardSVG(recapCardSVG(stats,tot),"PomPond-week"); });
+    });
   }
   // Kid taps their Pom count → a plain-language history of what each Pom was for.
   function palmHistory(kid){
@@ -923,9 +1003,12 @@
     fam.chores.forEach(c=>{const row=document.createElement("div");row.className="row";
       const who=c.assignedTo?member(c.assignedTo):null;
       const adult=!!(who&&who.role==="parent");
+      const dayNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const sched=(c.days&&c.days.length&&c.days.length<7)?" · "+c.days.slice().sort().map(i=>dayNames[i]).join(""):"";
+      const rt=routineOf(c); const rtTag=(c.routine&&c.routine!=="day")?` · ${rt.e}${rt.n}`:"";
       const meta = adult
         ? `👤 ${esc(who.name)} · grown-up${(c.doneCount||0)?` · done ${c.doneCount}×`:""}`
-        : `⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}`;
+        : `⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}${rtTag}${sched}`;
       const doneBtn = adult
         ? `<button class="mini donebtn" style="${choreDoneToday(c)?"background:#5BB98C":"background:#fff;color:var(--soft);box-shadow:inset 0 0 0 2px var(--line)"}">${choreDoneToday(c)?"✓ Done":"Mark done"}</button>`
         : "";
@@ -1135,6 +1218,9 @@
         <button class="stepper" id="mp">+</button><span style="font-weight:800;color:var(--soft)">min</span>
         <input id="csec" inputmode="numeric" value="${secs}" style="width:60px;text-align:center"><span style="font-weight:800;color:var(--soft)">sec</span></div></div>
       <div class="field"><label>Assigned to</label><select id="cas">${kidOpts}</select></div>
+      <div class="field"><label>When</label><select id="crout">${ROUTINES.map(r=>`<option value="${r.k}" ${(d.routine||'day')===r.k?"selected":""}>${r.e} ${r.n}</option>`).join("")}</select></div>
+      <div class="field"><label>Days <span style="text-transform:none;font-weight:700">— tap to limit (default: every day)</span></label>
+        <div class="daypick" id="cdays">${["S","M","T","W","T","F","S"].map((dn,i)=>`<button type="button" class="daychip${(d.days&&d.days.includes(i))?" on":""}" data-d="${i}">${dn}</button>`).join("")}</div></div>
       <div class="field"><label>Worth <span style="text-transform:none;font-weight:700">(${esc(cnames())} per finish)</span></label>
         <select id="cpalm">${[1,2,3,4,5].map(v=>`<option value="${v}" ${(d.palm||1)===v?"selected":""}>${v} ${esc(v===1?cname():cnames())}</option>`).join("")}</select></div>
       <div class="sa"><button class="cancel">Cancel</button><button class="save">${isNew?"Add":"Save"}</button></div>`,s=>{
@@ -1142,6 +1228,7 @@
       const drawPrev=()=>{ prev.innerHTML=icons.length?icons.map(e=>`<span>${e}</span>`).join(""):`<span class="ipph">＋</span>`; };
       drawPrev();
       s.querySelector("#cipick").onclick=()=>openEmojiPicker(icons,3,arr=>{ icons=arr; drawPrev(); });
+      s.querySelectorAll("#cdays .daychip").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
       const min=s.querySelector("#cmin");
       s.querySelector("#mm").onclick=()=>min.value=Math.max(0,(parseInt(min.value,10)||0)-1);
       s.querySelector("#mp").onclick=()=>min.value=(parseInt(min.value,10)||0)+1;
@@ -1150,6 +1237,9 @@
         d.secs=Math.max(5,m*60+sc);d.name=s.querySelector("#cn").value.trim()||"Chore";d.assignedTo=s.querySelector("#cas").value||null;
         d.palm=Math.max(1,Math.min(5,+s.querySelector("#cpalm").value||1));
         d.emoji=icons.join(" ")||"✅";
+        d.routine=s.querySelector("#crout").value;
+        const dsel=[...s.querySelectorAll("#cdays .daychip.on")].map(b=>+b.dataset.d);
+        d.days=(dsel.length===0||dsel.length===7)?[]:dsel;   // none or all → every day
         if(isNew)fam.chores.push(d);else Object.assign(ch,d);save();closeSheet();render();};
       setTimeout(()=>{const el=s.querySelector("#cn");if(el)el.focus();},60);
     });
