@@ -275,7 +275,7 @@
         <div class="field"><label>Your kids</label>
           <div class="rows" id="skids">${kidList||'<div class="hint" style="margin:4px 0">No kids yet — add your first!</div>'}</div>
           <button class="iconbtn go" id="saddkid" style="width:100%;margin-top:10px;justify-content:center">+ Add a kid</button></div>
-        <label class="consent"><input type="checkbox" id="sconsent" ${fam.consent?"checked":""}><span>I'm this child's parent or guardian, and I agree to the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>. (No ads · we never sell your data · you can delete it anytime.)</span></label>
+        <label class="consent"><input type="checkbox" id="sconsent"><span>I confirm I'm <b>18+</b> and this child's <b>parent or legal guardian</b>, I've read the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and I consent to Pom Pond storing the information I enter. (No ads · we never sell data · delete anytime.)</span></label>
         <button class="btn-big" id="sgo" ${kids().length?"":"disabled"}>Let's go! 🎉</button>
         <div class="hint" style="margin-top:12px">Starter chores &amp; rewards are loaded — you can change everything later in the Parent screen.</div>
       </div>`;
@@ -288,7 +288,10 @@
       const pin=app.querySelector("#spn").value.replace(/\D/g,"");
       if(pin.length!==4){ toast("Choose a 4-digit Parent PIN 🔒"); const el=app.querySelector("#spn"); if(el)el.focus(); return; }
       if(!app.querySelector("#sconsent").checked){ toast("Please confirm you're the parent or guardian ✅"); return; }
-      fam.consent={at:Date.now(),v:1};   // verifiable-parental-consent acknowledgment (COPPA)
+      // Parental-consent AFFIRMATION (COPPA). NB: this local/no-account path is an
+      // affirmation, not a formal "verifiable parental consent" method; the cloud
+      // path additionally ties consent to the parent's authenticated email.
+      fam.consent={at:Date.now(),v:2,method:"guardian-affirmation"};
       fam.name=app.querySelector("#sfn").value.trim()||"Our Family";
       fam.settings.parentPin=pin;
       const p=setupParent(),pn=app.querySelector("#spnm").value.trim(); if(p&&pn)p.name=pn;
@@ -304,7 +307,7 @@
         <span>${showInstall()?'<button class="iconbtn go" id="install">📲 Get app</button> ':''}${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}${kids().length?'<button class="iconbtn" id="week">📅 Week</button> <button class="iconbtn" id="wof">🏆 Family</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
       <div class="label"><span>Who's here?</span><span class="ln"></span></div>
       <div class="lobby-grid" id="lg"></div>
-      <div class="hint">${isCheer()?"👏 You're cheering on this family (view-only) — tap a kid to see how they're growing their pond!":"Parents manage chores & rewards · kids do chores and grow their Pond"}</div>`;
+      <div class="hint">${isCheer()?"👏 You're cheering on this family (view-only) — tap a kid to see how they're growing their pond!":"Tap your name to start — everyone shares this one phone, no kid logins needed. <span style='white-space:nowrap'>(Want a kid on their own device? Parent → ⚙️ Settings → Kid sign-in.)</span>"}</div>`;
     app.querySelector("#gallery").onclick=galleryModal;
     const wof=app.querySelector("#wof"); if(wof)wof.onclick=wallOfFame;
     const wk=app.querySelector("#week"); if(wk)wk.onclick=weeklyRecap;
@@ -729,7 +732,7 @@
     const ks=kids(); const totalPoms=ks.reduce((s,k)=>s+(k.palms||0),0);
     const tiles=ks.map(k=>{ const st=cardStats(k);
       const art=st.top?`<div class="wofart">${critterArt(st.top)}</div>`:`<div class="wofart" style="font-size:34px">${k.emoji||'🧒'}</div>`;
-      return `<div class="wofcard" style="--kc:${k.color}">${art}<div class="wofname">${esc(k.name)}</div><div class="wofstat">${k.palms||0} ${esc(cnames())} · ${st.species}/${CritterEngine.list.length} kinds${k.streak?` · 🔥${k.streak}`:''}</div></div>`;
+      return `<div class="wofcard" style="--kc:${k.color}">${art}<div class="wofname">${esc(k.name)}</div><div class="wofstat">${k.palms||0} ${esc(cnames())} · ${st.species}/${CritterEngine.list.length} kinds</div></div>`;
     }).join('');
     openSheet(`<h3>🏆 Family Wall of Fame</h3>
       <p style="font-weight:700;color:var(--soft);font-size:14px;margin:-6px 0 12px">Our family has earned <b style="color:var(--accent)">${totalPoms}</b> ${esc(cnames())} together! 🎉 Everyone's growing their own pond.</p>

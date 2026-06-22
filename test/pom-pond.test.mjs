@@ -38,7 +38,7 @@ async function run() {
   click(document.querySelector('#sgo')); await wait(40);
   let s = state();
   ok('setup completes + saves under pomPondV1', s && s.setup === true && s.name === 'Test Family' && s.settings.parentPin === '4321');
-  ok('parental consent recorded', s && s.consent && s.consent.v === 1);
+  ok('parental consent recorded (guardian affirmation)', s && s.consent && s.consent.v >= 2 && s.consent.method === 'guardian-affirmation');
 
   // --- kid loop + daily lock ---
   click(card(/Maya/)); await wait(30);

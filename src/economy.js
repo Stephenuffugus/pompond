@@ -40,16 +40,33 @@
     fam.log.unshift({id:id(),ownerId:kid.id,type,note:note||"",at:Date.now(),byUid:byUid||null});
     if(fam.log.length>60)fam.log.length=60;
   }
+  // Survivable streak: missing yesterday doesn't reset you — ONE grace ("freeze")
+  // day per week is forgiven, so a single off-day can't undo a long streak.
   function bumpStreak(fam,kid,now){
-    const d=today(now); if(kid.lastActive===d)return;
-    const y=new Date((now||Date.now())-864e5).toISOString().slice(0,10);
-    kid.streak=(kid.lastActive===y)?(kid.streak||0)+1:1; kid.lastActive=d;
+    const nowMs=now||Date.now(); const d=today(nowMs); if(kid.lastActive===d)return;
+    const y=today(nowMs-864e5), dby=today(nowMs-2*864e5);
+    if(kid.lastActive===y){ kid.streak=(kid.streak||0)+1; }
+    else if(kid.lastActive===dby){                          // missed exactly one day
+      const wk=Math.floor(nowMs/(7*864e5));
+      if(kid.freezeWeek!==wk){ kid.freezeWeek=wk; kid.streak=(kid.streak||0)+1; }  // forgive once/week
+      else { kid.streak=1; }
+    } else { kid.streak=1; }                                // longer gap → reset
+    kid.lastActive=d;
+  }
+  const STREAK_MILESTONES=[7,14,30,60,100,200,365];
+  // Mint a special bonus critter when a streak hits a milestone (once each).
+  function streakReward(fam,kid,reveals){
+    if(STREAK_MILESTONES.indexOf(kid.streak)>=0 && kid.streakAward!==kid.streak){
+      kid.streakAward=kid.streak;
+      addCritter(fam,kid.id,2,true,'streak',reveals,'🔥 '+kid.streak+'-day streak reward!');
+    }
   }
 
   function earn(fam,kid,opts,reveals){          // opts:{type, special, note, byUid}
     opts=opts||{};
     kid.palms=(kid.palms||0)+1;
     bumpStreak(fam,kid);
+    streakReward(fam,kid,reveals);   // bonus critter at 7/14/30… day milestones
     // why this critter exists, in plain words — so a kid can tap it and remember.
     // For freely-given Poms the note IS the specific reason label (e.g. "Shared
     // without being asked"); for chores it's the chore name.

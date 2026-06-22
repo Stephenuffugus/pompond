@@ -231,9 +231,9 @@ async function bootCloud() {
         `<div class="minrow" style="margin-top:8px"><span style="flex:1;font-weight:800">${k.emoji||'🧒'} ${(k.name||'Kid').replace(/</g,'&lt;')}</span>`+
         `<input class="kidcode" data-mid="${k.id}" inputmode="numeric" maxlength="4" placeholder="4-digit" value="${(cloud.kidCodes&&cloud.kidCodes[k.id])||''}" style="width:90px;text-align:center"></div>`
       ).join('');
-      return `<div class="field"><label>Kid sign-in</label>`+
+      return `<div class="field"><label>Kid sign-in — only for a kid's OWN device (optional)</label>`+
+        `<div class="hint" style="margin:0 0 8px;text-align:left">By default kids just tap their name on this shared phone — no login needed. Use the codes below ONLY to set a kid up on their own tablet/phone: they open Pom Pond, tap “I’m a kid”, and enter the join code + their 4-digit code.</div>`+
         `<div class="minrow"><input id="jcode" value="${cloud.joinCode||'…'}" readonly style="flex:1"><button class="iconbtn" id="jregen" style="height:42px">↻</button></div>`+
-        `<div class="hint" style="margin:6px 0 0;text-align:left">Kids open the app on their own device, tap “I’m a kid”, and enter this join code + their 4-digit code below.</div>`+
         (kids.length?`<label style="margin-top:12px">Each kid’s 4-digit code</label>${codeRows}`:`<div class="hint" style="margin:8px 0 0;text-align:left">Add a kid first (Kids → + Kid), then set their code here.</div>`)+
         `</div>`;
     },
@@ -416,7 +416,7 @@ async function bootCloud() {
       <div id="paneNew">
         <div class="field"><input id="fname" placeholder="Family name" value="${local&&local.name?String(local.name).replace(/"/g,'&quot;'):''}"></div>
         ${canMigrate?`<div class="toggle">Bring my existing pond (${local.members.filter(m=>m.role==='child').length} kid(s), ${(local.critters||[]).length} critters) <div class="sw on" id="mig"><i></i></div></div>`:''}
-        <label style="display:flex;gap:9px;align-items:flex-start;margin:4px 2px 12px;font-size:13px;font-weight:700;color:#5E807B;line-height:1.4;cursor:pointer"><input type="checkbox" id="oconsent" style="margin-top:2px;width:19px;height:19px;flex:0 0 auto"><span>I'm the parent or guardian and agree to the <a href="privacy.html" target="_blank" rel="noopener" style="color:#3FA7A1;font-weight:800">Privacy Policy</a>. No ads · we never sell your data.</span></label>
+        <label style="display:flex;gap:9px;align-items:flex-start;margin:4px 2px 12px;font-size:13px;font-weight:700;color:#5E807B;line-height:1.4;cursor:pointer"><input type="checkbox" id="oconsent" style="margin-top:2px;width:19px;height:19px;flex:0 0 auto"><span>I confirm I'm <b>18+</b> and this child's <b>parent or legal guardian</b>, I've read the <a href="privacy.html" target="_blank" rel="noopener" style="color:#3FA7A1;font-weight:800">Privacy Policy</a>, and I consent to Pom Pond storing the info I enter. No ads · we never sell data.</span></label>
         <div class="sa"><button class="save" id="create">Create family 🎉</button></div>
       </div>
       <div id="paneJoin" style="display:none">
@@ -452,7 +452,7 @@ async function bootCloud() {
         if (!g.querySelector('#oconsent').checked) { PP.toast('Please confirm you are the parent or guardian ✅'); return; }
         g.querySelector('#create').textContent='Creating…';
         try {
-          const payload = { name: g.querySelector('#fname').value.trim()||'Our Family', consent: { at: Date.now(), v: 1 } };
+          const payload = { name: g.querySelector('#fname').value.trim()||'Our Family', consent: { at: Date.now(), v: 2, method: 'guardian-affirmation' } };
           if (migrate && canMigrate) payload.import = PP.normalize(local);
           await fns.createFamily(payload);
           await user.getIdToken(true);

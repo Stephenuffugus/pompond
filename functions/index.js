@@ -96,8 +96,10 @@ async function applyEconomy(fid, memberId, mutate, opts) {
     if (result.reject) throw new HttpsError('failed-precondition', result.reject);
 
     // persist deltas
-    const { palms, buckets, choices, streak, lastActive } = kid;
-    tx.set(memberRef, { palms, buckets, choices, streak, lastActive }, { merge: true });
+    const { palms, buckets, choices, streak, lastActive, freezeWeek, streakAward } = kid;
+    tx.set(memberRef, { palms, buckets, choices, streak, lastActive,
+      freezeWeek: freezeWeek != null ? freezeWeek : null,
+      streakAward: streakAward != null ? streakAward : null }, { merge: true });
     // privacy-safe analytics: FAMILY-LEVEL aggregate counters only (no child names/
     // ids, no per-event log) — enough to measure retention (createdAt vs lastActiveAt)
     // and engagement (actions/critters), with zero personal data about any child.
@@ -152,9 +154,13 @@ exports.createFamily = onCall(async (req) => {
     setup: false,
     settings,
     parentUids: [uid],
-    // record parental-consent acknowledgment (COPPA) — client passes it from the
-    // onboarding checkbox; default to a server-stamped acknowledgment otherwise.
-    consent: (data.consent && typeof data.consent === 'object') ? data.consent : { at: Date.now(), v: 1 },
+    // Parental-consent record (COPPA). The parent affirms guardianship (client
+    // checkbox) AND, on the cloud path, is signed in with their OWN Firebase-
+    // verified email — recorded here as the identity signal. This is an honest
+    // consent record, NOT a claim of formal "verifiable parental consent".
+    consent: Object.assign({ at: Date.now(), v: 2, method: 'guardian-affirmation' },
+      (data.consent && typeof data.consent === 'object') ? data.consent : {},
+      { parentEmail: a.token.email || null, parentUid: uid }),
     createdAt: FieldValue.serverTimestamp(),
     lastActiveAt: Date.now(), actions: 0, crittersTotal: 0
   });
@@ -559,16 +565,35 @@ exports.sendTestPush = onCall(async (req) => {
   return { sent };
 });
 // Hourly sweep: send each opted-in device a gentle reminder at its LOCAL chosen hour.
+// local day-of-week for a tz offset (0 = Sunday)
+function localDow(now, off) {
+  const total = now.getUTCDay() * 1440 + now.getUTCHours() * 60 + now.getUTCMinutes() + (off || 0);
+  return Math.floor((((total % 10080) + 10080) % 10080) / 1440);
+}
+// Hourly sweep: at each device's LOCAL chosen hour, send the right nudge —
+// a Sunday weekly-recap pull, a gentle "we miss you" when inactive, else the
+// daily chore reminder. Grouped per family so the message can use family state.
 exports.dailyReminder = onSchedule('every 60 minutes', async () => {
   const now = new Date();
   const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
   const snap = await db.collection('pushTokens').get();
-  const due = [];
+  const dueByFid = {};
   snap.docs.forEach(d => { const t = d.data();
     const localMin = (((utcMin + (t.tzOffsetMin || 0)) % 1440) + 1440) % 1440;
-    if (Math.floor(localMin / 60) === (t.hour != null ? t.hour : 16)) due.push(t.token);
+    if (Math.floor(localMin / 60) !== (t.hour != null ? t.hour : 16)) return;
+    const g = dueByFid[t.fid] || (dueByFid[t.fid] = { tokens: [], sunday: false });
+    g.tokens.push(t.token);
+    if (localDow(now, t.tzOffsetMin) === 0) g.sunday = true;
   });
-  if (due.length) await sendPush(due, 'Pom Pond 🐸', 'Time for today’s chores — your pond is waiting!');
+  for (const fid of Object.keys(dueByFid)) {
+    const fam = (await famRef(fid).get()).data() || {};
+    const inactiveDays = ((Date.now()) - (fam.lastActiveAt || 0)) / 864e5;
+    const { tokens, sunday } = dueByFid[fid];
+    const body = sunday ? 'Your family’s week is ready — open Pom Pond to see what everyone got up to! 📅'
+      : inactiveDays >= 3 ? 'Your pond misses you 🐸 — one quick chore brings it back to life!'
+      : 'Time for today’s chores — your pond is waiting!';
+    await sendPush(tokens, 'Pom Pond 🐸', body);
+  }
 });
 
 // Kid fuses 2–3 of their OWN critters into one new deterministic critter; the

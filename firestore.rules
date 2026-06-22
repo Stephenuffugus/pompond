@@ -32,7 +32,7 @@ service cloud.firestore {
 
     // keys that are ECONOMY state on a member doc — never client-writable.
     function memberEconomyKeys() {
-      return ['palms','buckets','choices','streak','lastActive','childAuthId'];
+      return ['palms','buckets','choices','streak','lastActive','childAuthId','freezeWeek','streakAward'];
     }
     // a member update is "config only" if it touches none of the economy keys.
     function memberConfigOnly() {

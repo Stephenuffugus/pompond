@@ -30,6 +30,17 @@ ok('5 critters minted incl. fusion', f.critters.length === 5);
 ok('two rarities present (0 & 1)', new Set(f.critters.map(c=>c.rarity)).size === 2 && f.critters.some(c=>c.rarity===1));
 ok('one small reward token ready', f.inventory.filter(i=>i.tier==='small'&&i.status==='ready').length === 1);
 ok('streak started at 1', kid(f).streak === 1);
+// --- survivable streak: one missed day is forgiven (weekly grace); long gap resets ---
+{ const sf=freshFam(), sk=kid(sf), D=864e5, t=49*D;
+  sk.lastActive=null; Economy.bumpStreak(sf,sk,t); Economy.bumpStreak(sf,sk,t+D); Economy.bumpStreak(sf,sk,t+3*D);
+  ok('streak survives one missed day (grace)', sk.streak===3);
+  Economy.bumpStreak(sf,sk,t+10*D);
+  ok('streak resets after a long gap', sk.streak===1);
+}
+// --- streak milestone (7 days) mints a bonus critter, once ---
+{ const mf=freshFam(), mk=kid(mf), rv=[]; mk.streak=6; mk.lastActive=Economy.today(Date.now()-864e5);
+  Economy.earn(mf,mk,{type:'chore'},rv);
+  ok('streak milestone (7d) mints a bonus critter', mk.streak===7 && rv.some(c=>c.tag==='streak')); }
 
 // --- drive to a medium fill (3 small fills) → queues a choice + tier-2 critter ---
 f = freshFam();
