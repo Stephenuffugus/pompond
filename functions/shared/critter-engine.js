@@ -43,15 +43,16 @@
     const sat=p ? p[2]+Math.floor(r()*(p[3]-p[2])) : 58+Math.floor(r()*12);
     const t={
       uid, hue, hue2, harm,
-      body:`hsl(${hue},${sat}%,62%)`,
-      bodyD:`hsl(${hue},${sat-8}%,47%)`,
-      bodyL:`hsl(${hue},${sat+10}%,74%)`,
-      belly:`hsl(${hue},${Math.min(sat+18,92)}%,88%)`,
-      acc:`hsl(${hue2},72%,56%)`,
-      accD:`hsl(${hue2},66%,44%)`,
-      line:`hsl(${hue},45%,28%)`,
-      pattern:pick(r,['plain','plain','spots','stripes','patches','freckles','ombre']),
-      eyeStyle:pick(r,['round','round','big','sleepy','wink','sparkle','happy']),
+      body:`hsl(${hue},${sat}%,61%)`,
+      bodyD:`hsl(${hue},${sat-6}%,44%)`,
+      bodyL:`hsl(${hue},${sat+12}%,76%)`,
+      bodyHi:`hsl(${hue},${Math.min(sat+22,96)}%,87%)`,   // bright top-left highlight (form)
+      belly:`hsl(${hue},${Math.min(sat+18,92)}%,90%)`,
+      acc:`hsl(${hue2},74%,57%)`,
+      accD:`hsl(${hue2},68%,44%)`,
+      line:`hsl(${hue},48%,26%)`,
+      pattern:pick(r,['plain','plain','spots','stripes','patches','freckles','ombre','rosette','dapple','tiger','starspot']),
+      eyeStyle:pick(r,['round','round','big','sleepy','wink','sparkle','happy','starry','shimmer']),
       blush:r()<0.55,
       r
     };
@@ -72,7 +73,7 @@
   // soft body gradient def (cheap radial); returns {def, fill}
   function bodyGrad(t,suffix){
     const id='g'+t.uid+(suffix||'');
-    const def=`<radialGradient id="${id}" cx="38%" cy="30%" r="80%"><stop offset="0%" stop-color="${t.bodyL}"/><stop offset="60%" stop-color="${t.body}"/><stop offset="100%" stop-color="${t.bodyD}"/></radialGradient>`;
+    const def=`<radialGradient id="${id}" cx="37%" cy="26%" r="92%"><stop offset="0%" stop-color="${t.bodyHi||t.bodyL}"/><stop offset="30%" stop-color="${t.bodyL}"/><stop offset="68%" stop-color="${t.body}"/><stop offset="100%" stop-color="${t.bodyD}"/></radialGradient>`;
     return {def, fill:`url(#${id})`};
   }
 
@@ -86,6 +87,8 @@
     if(s==='wink')return dot(x1)+curve(x2);
     if(s==='big'){const e=x=>`<circle cx="${x}" cy="${y}" r="${f1(4.6*sz)}" fill="#fff"/><circle cx="${x}" cy="${f1(y+0.6*sz)}" r="${f1(3*sz)}" fill="#2c2622"/><circle cx="${f1(x+1.5*sz)}" cy="${f1(y-1.5*sz)}" r="${f1(1.3*sz)}" fill="#fff"/><circle cx="${f1(x-1.3*sz)}" cy="${f1(y+1.6*sz)}" r="${f1(0.7*sz)}" fill="#fff" opacity=".8"/>`;return e(x1)+e(x2);}
     if(s==='sparkle'){const e=x=>`<circle cx="${x}" cy="${y}" r="${f1(3.6*sz)}" fill="#2c2622"/><circle cx="${f1(x-1.2*sz)}" cy="${f1(y-1.2*sz)}" r="${f1(1.2*sz)}" fill="#fff"/><circle cx="${f1(x+1.4*sz)}" cy="${f1(y+1.2*sz)}" r="${f1(0.7*sz)}" fill="#fff"/>`;return e(x1)+e(x2);}
+    if(s==='starry'){const e=x=>`<circle cx="${x}" cy="${y}" r="${f1(3.8*sz)}" fill="#2c2622"/><g transform="translate(${f1(x-0.8*sz)} ${f1(y-0.8*sz)})">${star(0,0,f1(1.7*sz),'#fff')}</g>`;return e(x1)+e(x2);}
+    if(s==='shimmer'){const e=x=>`<ellipse cx="${x}" cy="${y}" rx="${f1(4.4*sz)}" ry="${f1(4.9*sz)}" fill="#fff"/><ellipse cx="${x}" cy="${f1(y+0.7*sz)}" rx="${f1(3.1*sz)}" ry="${f1(3.6*sz)}" fill="#3a3340"/><ellipse cx="${x}" cy="${f1(y+1.4*sz)}" rx="${f1(2.1*sz)}" ry="${f1(2.5*sz)}" fill="#2c2622"/><circle cx="${f1(x+1.5*sz)}" cy="${f1(y-1.6*sz)}" r="${f1(1.3*sz)}" fill="#fff"/><circle cx="${f1(x-1.4*sz)}" cy="${f1(y+1.8*sz)}" r="${f1(0.7*sz)}" fill="#fff" opacity=".85"/>`;return e(x1)+e(x2);}
     return dot(x1)+dot(x2);
   }
   function blush(t,x1,x2,y){return t.blush?`<ellipse cx="${x1}" cy="${y}" rx="3.2" ry="2.2" fill="hsl(${t.hue},88%,72%)" opacity=".6"/><ellipse cx="${x2}" cy="${y}" rx="3.2" ry="2.2" fill="hsl(${t.hue},88%,72%)" opacity=".6"/>`:'';}
@@ -97,6 +100,10 @@
     if(t.pattern==='patches')return `<ellipse cx="${f1(cx+5*sc)}" cy="${f1(cy-2*sc)}" rx="${f1(6*sc)}" ry="${f1(5*sc)}" fill="${a}" opacity=".42"/>`;
     if(t.pattern==='freckles')return `<circle cx="${f1(cx-6*sc)}" cy="${cy}" r="${f1(0.9*sc)}" fill="${t.accD}" opacity=".7"/><circle cx="${f1(cx-3*sc)}" cy="${f1(cy+1*sc)}" r="${f1(0.9*sc)}" fill="${t.accD}" opacity=".7"/><circle cx="${f1(cx+4*sc)}" cy="${cy}" r="${f1(0.9*sc)}" fill="${t.accD}" opacity=".7"/><circle cx="${f1(cx+7*sc)}" cy="${f1(cy+1*sc)}" r="${f1(0.9*sc)}" fill="${t.accD}" opacity=".7"/>`;
     if(t.pattern==='ombre')return `<ellipse cx="${cx}" cy="${f1(cy+5*sc)}" rx="${f1(13*sc)}" ry="${f1(7*sc)}" fill="${a}" opacity=".28"/>`;
+    if(t.pattern==='rosette')return [[cx-7,cy,2.8],[cx+6,cy+4,2.4],[cx+2,cy-5,2.1]].map(([x,y,r])=>`<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(r*sc)}" fill="none" stroke="${a}" stroke-width="${f1(1.3*sc)}" opacity=".7"/><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.9*sc)}" fill="${a}" opacity=".7"/>`).join('');
+    if(t.pattern==='dapple')return [[cx-8,cy-2,1.7],[cx-3,cy+4,1.3],[cx+3,cy-3,1.5],[cx+7,cy+2,1.4],[cx+1,cy+6,1.1],[cx-5,cy+2,1.2]].map(([x,y,r])=>`<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(r*sc)}" fill="${t.bodyL}" opacity=".55"/>`).join('');
+    if(t.pattern==='tiger')return [-9,-4,1,6].map(dx=>`<path d="M${f1(cx+dx*sc)} ${f1(cy-6*sc)} q${f1(-2*sc)} ${f1(6*sc)} 0 ${f1(12*sc)}" stroke="${t.bodyD}" stroke-width="${f1(1.8*sc)}" fill="none" opacity=".5" stroke-linecap="round"/>`).join('');
+    if(t.pattern==='starspot')return [[cx-7,cy-1],[cx+5,cy+3],[cx+1,cy-4]].map(([x,y])=>`<g transform="translate(${f1(x)} ${f1(y)})">${star(0,0,f1(2.4*sc),a)}</g>`).join('');
     return '';
   }
 
@@ -162,6 +169,18 @@
     if(type==='shiny')return `<circle cx="${nx}" cy="${ny}" r="2.5" fill="#2c2622"/><circle cx="${f1(nx-0.9)}" cy="${f1(ny-0.9)}" r="0.9" fill="#fff"/>`;
     if(type==='tiny')return `<circle cx="${nx}" cy="${ny}" r="1.3" fill="#2c2622"/>`;
     return '';}
+  // FEATURE LAYERS — dramatic, mostly-centered extras a species can opt into via
+  // spec.feat. {back} draws behind the body, {front} on top. Shape-agnostic positions.
+  function pFeature(type,t,g){const f=g.fill;
+    if(type==='wings')return {back:`<g><path d="M41 52 q-30 -16 -39 4 q-3 18 14 18 q17 0 25 -10z" fill="${t.bodyL}" stroke="${t.bodyD}" stroke-width="1" opacity=".95"/><path d="M59 52 q30 -16 39 4 q3 18 -14 18 q-17 0 -25 -10z" fill="${t.bodyL}" stroke="${t.bodyD}" stroke-width="1" opacity=".95"/><path d="M37 55 q-20 -7 -28 4 M63 55 q20 -7 28 4" stroke="${t.bodyD}" stroke-width="1" fill="none" opacity=".4"/></g>`};
+    if(type==='batwings')return {back:`<g><path d="M42 50 q-27 -19 -41 -5 q10 1 9 9 q8 -3 11 4 q7 -2 9 5 q6 -2 8 4z" fill="${t.accD}" opacity=".95"/><path d="M58 50 q27 -19 41 -5 q-10 1 -9 9 q-8 -3 -11 4 q-7 -2 -9 5 q-6 -2 -8 4z" fill="${t.accD}" opacity=".95"/></g>`};
+    if(type==='fae')return {back:`<g opacity=".62"><ellipse cx="34" cy="46" rx="15" ry="10" fill="${t.acc}" transform="rotate(-24 34 46)"/><ellipse cx="66" cy="46" rx="15" ry="10" fill="${t.acc}" transform="rotate(24 66 46)"/><ellipse cx="36" cy="62" rx="12" ry="8" fill="${t.acc}" transform="rotate(-14 36 62)"/><ellipse cx="64" cy="62" rx="12" ry="8" fill="${t.acc}" transform="rotate(14 64 62)"/></g>`};
+    if(type==='backspike')return {back:`<g>`+[34,42,50,58,64].map((x,i)=>`<path d="M${x} 46 l${i%2?3:-3} -${11+(i===2?5:0)} 6 10z" fill="${t.acc}" stroke="${t.accD}" stroke-width="0.6" opacity=".92"/>`).join('')+`</g>`};
+    if(type==='mane'){let m='';for(let i=0;i<13;i++){const a=i/13*Math.PI*2;m+=`<circle cx="${f1(50+19*Math.cos(a))}" cy="${f1(52+19*Math.sin(a))}" r="6.2" fill="${t.acc}" opacity=".88"/>`;}return {back:`<g>${m}</g>`};}
+    if(type==='horns')return {front:`<path d="M42 31 q-5 -11 -11 -12 q3 6 5 13z" fill="${t.bodyL}" stroke="${t.bodyD}" stroke-width="0.8"/><path d="M58 31 q5 -11 11 -12 q-3 6 -5 13z" fill="${t.bodyL}" stroke="${t.bodyD}" stroke-width="0.8"/>`};
+    if(type==='antlers')return {front:`<g stroke="${t.bodyD}" stroke-width="2.2" fill="none" stroke-linecap="round"><path d="M45 29 q-5 -11 -9 -14 M40 22 l-6 -3 M41 26 l-7 0"/><path d="M55 29 q5 -11 9 -14 M60 22 l6 -3 M59 26 l7 0"/></g>`};
+    if(type==='halo')return {back:`<ellipse cx="50" cy="22" rx="13" ry="4" fill="none" stroke="hsl(48,95%,68%)" stroke-width="2.6" opacity=".9"/>`};
+    return {};}
   function compose(t,s){s=s||{};const g=bodyGrad(t),o=[`<defs>${g.def}</defs>`];let accY=22;const sh=s.shape||'std';
     if(sh==='round'){o.push(shadow(50,88,22),pTail(s.tail,t,g),`<circle cx="50" cy="55" r="24" fill="${g.fill}"/>`);
       if(s.belly)o.push(`<ellipse cx="50" cy="62" rx="13" ry="12" fill="${t.belly}"/>`);
@@ -188,6 +207,7 @@
       o.push(mark(t,50,70,0.85),`<circle cx="50" cy="47" r="16" fill="${g.fill}"/>`,pEars(s.ears,t,g,50,33,11));accY=22;
       o.push(eyes(t,43,57,47,s.eyeSz||0.85),pNose(s.nose,t,50,53),smile(50,56,3.8),blush(t,37,63,53));
     }
+    if(s.feat){const fe=pFeature(s.feat,t,g); if(fe.back)o.splice(2,0,fe.back); if(fe.front)o.push(fe.front);}
     return [o.join(''),50,accY];}
 
   const ARCH={
@@ -505,6 +525,311 @@
     brackish:{shape:'wide',ears:'crest',tail:'spike',nose:'heart',eyeSz:0.95},
     estuary:{shape:'tall',ears:'pointy',tail:'swirl',nose:'button',belly:true},
     lagoon:{shape:'round',ears:'horn',tail:'fluffy',nose:'beak',belly:true,eyeSz:0.8},
+    // ---- feature-bearing species (exercise the new dramatic feature layers) ----
+    pegasi:{shape:'std',ears:'pointy',tail:'fluffy',nose:'snout',feat:'wings'},
+    drakeling:{shape:'std',ears:'horn',tail:'spike',nose:'dot',feat:'batwings',belly:true},
+    faeriekin:{shape:'tall',ears:'antenna',tail:'none',nose:'button',feat:'fae',eyeSz:0.95},
+    spinosa:{shape:'wide',ears:'none',tail:'spike',nose:'dot',feat:'backspike'},
+    lionet:{shape:'round',ears:'round',tail:'puff',nose:'shiny',feat:'mane',belly:true},
+    oryxkin:{shape:'std',ears:'long',tail:'thin',nose:'snout',feat:'horns'},
+    stagling:{shape:'std',ears:'long',tail:'puff',nose:'dot',feat:'antlers',eyeSz:0.9},
+    cherubin:{shape:'egg',ears:'none',tail:'none',nose:'button',feat:'halo',belly:true},
+    glimmertide:{shape:'std',ears:'fin',tail:'fin',nose:'shiny',eyeSz:0.95},
+    lanternjaw:{shape:'chub',ears:'antenna',tail:'thin',nose:'shiny',belly:true,eyeSz:0.95},
+    wispjelly:{shape:'round',ears:'none',tail:'plume',nose:'tiny',eyeSz:0.8,feat:'fae'},
+    coilfin:{shape:'tall',ears:'none',tail:'swirl',nose:'dot'},
+    mantaray:{shape:'wide',ears:'fin',tail:'thin',nose:'dot',feat:'wings'},
+    inkpuff:{shape:'round',ears:'none',tail:'swirl',nose:'button',belly:true,eyeSz:0.95},
+    bubblegill:{shape:'egg',ears:'fin',tail:'puff',nose:'button',belly:true,eyeSz:0.95},
+    deepglow:{shape:'std',ears:'antenna',tail:'star',nose:'shiny',eyeSz:0.95},
+    frillmane:{shape:'std',ears:'fan',tail:'fin',nose:'snout',feat:'mane'},
+    pebblepuff:{shape:'chub',ears:'none',tail:'puff',nose:'dot',belly:true},
+    seadrift:{shape:'wide',ears:'fin',tail:'fin',nose:'tiny'},
+    glowcurl:{shape:'tall',ears:'none',tail:'curl',nose:'dot',eyeSz:0.8},
+    spinefin:{shape:'std',ears:'crest',tail:'spike',nose:'snout',feat:'backspike'},
+    corallow:{shape:'round',ears:'crest',tail:'leaf',nose:'button',belly:true},
+    tideling:{shape:'egg',ears:'fin',tail:'swirl',nose:'tiny',belly:true,eyeSz:0.95},
+    finwhisker:{shape:'std',ears:'long',tail:'thin',nose:'dot'},
+    pearlbelly:{shape:'round',ears:'none',tail:'fin',nose:'heart',belly:true,eyeSz:0.8},
+    squidlet:{shape:'tall',ears:'none',tail:'plume',nose:'tiny',eyeSz:0.95},
+    sparkjelly:{shape:'round',ears:'none',tail:'star',nose:'shiny',eyeSz:0.8,feat:'fae'},
+    reefnose:{shape:'wide',ears:'fan',tail:'leaf',nose:'snout'},
+    abyssmaw:{shape:'chub',ears:'horn',tail:'spike',nose:'shiny',eyeSz:0.95,feat:'horns'},
+    driftpetal:{shape:'egg',ears:'none',tail:'plume',nose:'button',belly:true,eyeSz:0.8},
+    snailshell:{shape:'round',ears:'curl',tail:'swirl',nose:'tiny',belly:true},
+    halofin:{shape:'std',ears:'fin',tail:'fin',nose:'dot',eyeSz:0.8,feat:'halo'},
+    mottlewide:{shape:'wide',ears:'dish',tail:'none',nose:'snout',belly:true},
+    glintray:{shape:'wide',ears:'fin',tail:'star',nose:'shiny'},
+    griffling:{shape:'std',ears:'tuft',tail:'plume',nose:'beak',feat:'wings'},
+    emberwyrm:{shape:'tall',ears:'horn',tail:'spike',nose:'snout'},
+    krakelet:{shape:'round',ears:'fin',tail:'swirl',nose:'tiny',belly:true,eyeSz:0.95},
+    phoenibb:{shape:'egg',ears:'crest',tail:'plume',nose:'beak',feat:'wings'},
+    chimole:{shape:'chub',ears:'horn',tail:'spike',nose:'snout',belly:true,feat:'mane'},
+    unifluff:{shape:'std',ears:'pointy',tail:'fluffy',nose:'button',feat:'horns'},
+    hydrapip:{shape:'wide',ears:'fin',tail:'fin',nose:'dot',belly:true},
+    sphinxlet:{shape:'std',ears:'tuft',tail:'thin',nose:'heart'},
+    basilop:{shape:'tall',ears:'dish',tail:'curl',nose:'shiny',eyeSz:0.8},
+    pegapuff:{shape:'round',ears:'pointy',tail:'plume',nose:'button',belly:true,feat:'wings'},
+    dracosprout:{shape:'egg',ears:'horn',tail:'leaf',nose:'snout',belly:true},
+    wispmote:{shape:'round',ears:'antenna',tail:'star',nose:'tiny',eyeSz:0.95,feat:'fae'},
+    manticub:{shape:'chub',ears:'round',tail:'spike',nose:'snout',belly:true,feat:'mane'},
+    selkindle:{shape:'wide',ears:'floppy',tail:'fin',nose:'button',belly:true},
+    fennimaw:{shape:'std',ears:'long',tail:'fluffy',nose:'dot'},
+    cockabean:{shape:'egg',ears:'crest',tail:'puff',nose:'beak',belly:true,eyeSz:0.95},
+    thunderfin:{shape:'tall',ears:'fin',tail:'fin',nose:'snout',feat:'backspike'},
+    glimmara:{shape:'std',ears:'fan',tail:'swirl',nose:'shiny',feat:'halo'},
+    bumbledrake:{shape:'chub',ears:'horn',tail:'curl',nose:'snout',belly:true,feat:'batwings'},
+    nimbcalf:{shape:'round',ears:'curl',tail:'puff',nose:'button',belly:true},
+    sirenelle:{shape:'tall',ears:'fin',tail:'swirl',nose:'heart'},
+    yetimoss:{shape:'wide',ears:'tuft',tail:'fluffy',nose:'dot',belly:true},
+    sparkfae:{shape:'std',ears:'antenna',tail:'leaf',nose:'tiny',eyeSz:0.8,feat:'fae'},
+    cervyn:{shape:'tall',ears:'long',tail:'thin',nose:'button',feat:'antlers'},
+    pebblescale:{shape:'egg',ears:'dish',tail:'spike',nose:'tiny',belly:true,feat:'backspike'},
+    moonbun:{shape:'round',ears:'bunny',tail:'puff',nose:'heart',belly:true,eyeSz:0.95,feat:'halo'},
+    cinderoo:{shape:'std',ears:'crest',tail:'plume',nose:'beak'},
+    glacewing:{shape:'wide',ears:'pointy',tail:'fin',nose:'dot',feat:'wings'},
+    beetlebop:{shape:'round',ears:'antenna',tail:'none',nose:'button',belly:true},
+    mothwing:{shape:'wide',ears:'fan',tail:'plume',nose:'tiny',eyeSz:0.95,feat:'wings'},
+    mantling:{shape:'tall',ears:'antenna',tail:'thin',nose:'dot',eyeSz:0.95},
+    snailpod:{shape:'egg',ears:'antenna',tail:'swirl',nose:'tiny',belly:true},
+    antnip:{shape:'std',ears:'antenna',tail:'thin',nose:'dot'},
+    glowbottom:{shape:'chub',ears:'antenna',tail:'star',nose:'shiny',belly:true},
+    dewdrop:{shape:'round',ears:'none',tail:'none',nose:'shiny',belly:true,eyeSz:0.95},
+    flutterby:{shape:'wide',ears:'antenna',tail:'fin',nose:'heart',eyeSz:0.95,feat:'fae'},
+    ladybop:{shape:'round',ears:'antenna',tail:'none',nose:'dot',belly:true},
+    cricklet:{shape:'std',ears:'long',tail:'spike',nose:'tiny'},
+    stinglet:{shape:'egg',ears:'antenna',tail:'spike',nose:'dot',belly:true,feat:'wings'},
+    caterpuff:{shape:'tall',ears:'antenna',tail:'puff',nose:'button',belly:true},
+    weevil:{shape:'chub',ears:'antenna',tail:'none',nose:'snout',belly:true},
+    dragonet:{shape:'tall',ears:'fin',tail:'fin',nose:'tiny',eyeSz:0.95,feat:'wings'},
+    pillbug:{shape:'round',ears:'none',tail:'none',nose:'tiny',belly:true},
+    hornbeetle:{shape:'wide',ears:'none',tail:'none',nose:'snout',feat:'horns'},
+    gnatling:{shape:'std',ears:'antenna',tail:'thin',nose:'tiny',eyeSz:0.8},
+    beewhisk:{shape:'chub',ears:'antenna',tail:'puff',nose:'button',belly:true,feat:'wings'},
+    leafhopper:{shape:'std',ears:'crest',tail:'leaf',nose:'dot'},
+    slugglet:{shape:'wide',ears:'antenna',tail:'none',nose:'tiny',belly:true},
+    sparkwing:{shape:'egg',ears:'antenna',tail:'star',nose:'shiny',eyeSz:0.95,feat:'fae'},
+    earwiggle:{shape:'std',ears:'antenna',tail:'spike',nose:'dot'},
+    aphidot:{shape:'round',ears:'antenna',tail:'thin',nose:'tiny',belly:true,eyeSz:0.8},
+    chrysabud:{shape:'egg',ears:'none',tail:'leaf',nose:'none',belly:true},
+    waspine:{shape:'tall',ears:'antenna',tail:'spike',nose:'dot',feat:'wings'},
+    tickletoe:{shape:'round',ears:'long',tail:'none',nose:'button',belly:true},
+    scarabling:{shape:'wide',ears:'horn',tail:'none',nose:'shiny',belly:true,feat:'backspike'},
+    sunwing:{shape:'std',ears:'crest',tail:'plume',nose:'beak',belly:true,feat:'wings'},
+    mossbeak:{shape:'round',ears:'tuft',tail:'fin',nose:'beak',belly:true},
+    toucanto:{shape:'chub',ears:'none',tail:'thin',nose:'beak',belly:true,eyeSz:0.95},
+    hootle:{shape:'egg',ears:'tuft',tail:'puff',nose:'tiny',belly:true,eyeSz:0.95},
+    craneo:{shape:'tall',ears:'crest',tail:'plume',nose:'beak'},
+    finchy:{shape:'round',ears:'none',tail:'puff',nose:'dot',belly:true},
+    parroto:{shape:'std',ears:'crest',tail:'curl',nose:'beak',belly:true},
+    snowyowl:{shape:'egg',ears:'tuft',tail:'fluffy',nose:'button',belly:true,eyeSz:0.95,feat:'wings'},
+    flamio:{shape:'tall',ears:'none',tail:'plume',nose:'beak'},
+    kiwip:{shape:'chub',ears:'none',tail:'none',nose:'snout',belly:true,eyeSz:0.8},
+    bluebee:{shape:'round',ears:'none',tail:'fin',nose:'dot',belly:true},
+    peafan:{shape:'std',ears:'crest',tail:'swirl',nose:'beak'},
+    robino:{shape:'round',ears:'none',tail:'thin',nose:'beak',belly:true},
+    penguil:{shape:'egg',ears:'none',tail:'none',nose:'beak',belly:true},
+    wrenly:{shape:'round',ears:'none',tail:'spike',nose:'tiny',belly:true,eyeSz:0.8},
+    heronel:{shape:'tall',ears:'crest',tail:'thin',nose:'beak'},
+    cockato:{shape:'std',ears:'fan',tail:'plume',nose:'beak',belly:true},
+    swiftia:{shape:'wide',ears:'none',tail:'fin',nose:'beak',feat:'wings'},
+    puffino:{shape:'chub',ears:'none',tail:'puff',nose:'beak',belly:true,eyeSz:0.95},
+    larkle:{shape:'round',ears:'tuft',tail:'thin',nose:'dot',belly:true},
+    hummel:{shape:'round',ears:'none',tail:'star',nose:'tiny',belly:true,eyeSz:0.8,feat:'fae'},
+    kingfish:{shape:'std',ears:'crest',tail:'fin',nose:'beak',belly:true},
+    dovel:{shape:'egg',ears:'none',tail:'leaf',nose:'button',belly:true,feat:'halo'},
+    baldeo:{shape:'wide',ears:'none',tail:'spike',nose:'beak',feat:'wings'},
+    weaverp:{shape:'round',ears:'none',tail:'leaf',nose:'dot',belly:true},
+    nightjo:{shape:'wide',ears:'tuft',tail:'swirl',nose:'tiny',eyeSz:0.95},
+    raptorling:{shape:'tall',ears:'pointy',tail:'thin',nose:'snout'},
+    stomptail:{shape:'wide',ears:'none',tail:'spike',nose:'snout',belly:true,feat:'backspike'},
+    plateback:{shape:'chub',ears:'dish',tail:'spike',nose:'button',belly:true,feat:'backspike'},
+    skywhirl:{shape:'std',ears:'crest',tail:'fin',nose:'beak',feat:'wings'},
+    longneck:{shape:'tall',ears:'round',tail:'thin',nose:'tiny',belly:true},
+    frillpip:{shape:'round',ears:'fan',tail:'puff',nose:'button',belly:true,eyeSz:0.95},
+    horncrest:{shape:'std',ears:'horn',tail:'plume',nose:'snout',feat:'horns'},
+    pebbletum:{shape:'egg',ears:'none',tail:'curl',nose:'dot',belly:true,eyeSz:0.95},
+    glidewing:{shape:'wide',ears:'fin',tail:'fin',nose:'beak',feat:'batwings'},
+    spikadoo:{shape:'chub',ears:'tuft',tail:'spike',nose:'button',belly:true,feat:'backspike'},
+    clawnip:{shape:'tall',ears:'pointy',tail:'swirl',nose:'tiny'},
+    mudwallow:{shape:'wide',ears:'floppy',tail:'thin',nose:'snout',belly:true},
+    crestpeak:{shape:'tall',ears:'crest',tail:'leaf',nose:'beak'},
+    thornback:{shape:'std',ears:'horn',tail:'spike',nose:'snout',feat:'backspike'},
+    dawnscale:{shape:'round',ears:'round',tail:'star',nose:'shiny',belly:true,eyeSz:0.95},
+    swampchomp:{shape:'wide',ears:'none',tail:'thin',nose:'snout'},
+    flutterwyrm:{shape:'std',ears:'antenna',tail:'plume',nose:'tiny',feat:'fae'},
+    rumbletoe:{shape:'chub',ears:'dish',tail:'puff',nose:'button',belly:true},
+    nibblet:{shape:'egg',ears:'pointy',tail:'curl',nose:'tiny',belly:true,eyeSz:0.95},
+    craggle:{shape:'std',ears:'horn',tail:'spike',nose:'dot',feat:'horns'},
+    breezebeak:{shape:'round',ears:'crest',tail:'leaf',nose:'beak',belly:true,feat:'wings'},
+    boulderpup:{shape:'chub',ears:'floppy',tail:'puff',nose:'snout',belly:true},
+    zappytail:{shape:'std',ears:'pointy',tail:'star',nose:'dot'},
+    mossmaw:{shape:'wide',ears:'round',tail:'leaf',nose:'snout',belly:true},
+    crownridge:{shape:'tall',ears:'fan',tail:'plume',nose:'beak',feat:'mane'},
+    frostpup:{shape:'chub',ears:'round',tail:'puff',nose:'dot',belly:true,eyeSz:0.95},
+    narwhisp:{shape:'wide',ears:'none',tail:'fin',nose:'shiny',belly:true,feat:'horns'},
+    snowfox:{shape:'std',ears:'pointy',tail:'fluffy',nose:'button'},
+    tuftowl:{shape:'egg',ears:'tuft',tail:'plume',nose:'beak',belly:true,eyeSz:0.95,feat:'wings'},
+    snowhare:{shape:'round',ears:'bunny',tail:'puff',nose:'tiny',belly:true,eyeSz:0.95},
+    sealpip:{shape:'egg',ears:'none',tail:'fin',nose:'shiny',belly:true,eyeSz:0.95},
+    glacigoat:{shape:'tall',ears:'horn',tail:'thin',nose:'snout',feat:'horns'},
+    tundling:{shape:'chub',ears:'floppy',tail:'fluffy',nose:'button',belly:true,eyeSz:0.8},
+    reindeer:{shape:'tall',ears:'round',tail:'thin',nose:'snout',feat:'antlers'},
+    puffin:{shape:'egg',ears:'none',tail:'thin',nose:'beak',belly:true,feat:'wings'},
+    icekit:{shape:'round',ears:'pointy',tail:'curl',nose:'heart',belly:true,eyeSz:0.95},
+    walrump:{shape:'wide',ears:'none',tail:'fin',nose:'snout',belly:true,eyeSz:0.8},
+    frostlynx:{shape:'std',ears:'tuft',tail:'thin',nose:'button'},
+    shivermouse:{shape:'round',ears:'dish',tail:'thin',nose:'tiny',belly:true,eyeSz:0.95},
+    borealis:{shape:'std',ears:'crest',tail:'swirl',nose:'shiny',feat:'fae'},
+    snugauk:{shape:'egg',ears:'none',tail:'puff',nose:'beak',belly:true,eyeSz:0.95},
+    mittenpaw:{shape:'chub',ears:'round',tail:'fluffy',nose:'dot',belly:true,eyeSz:0.8},
+    tinselmoth:{shape:'std',ears:'antenna',tail:'plume',nose:'tiny',feat:'wings'},
+    driftling:{shape:'round',ears:'long',tail:'puff',nose:'button',belly:true,eyeSz:0.95},
+    hoarhorn:{shape:'tall',ears:'horn',tail:'spike',nose:'snout',feat:'backspike'},
+    polarcub:{shape:'chub',ears:'round',tail:'puff',nose:'snout',belly:true,eyeSz:0.95},
+    whisker:{shape:'wide',ears:'floppy',tail:'fin',nose:'shiny',belly:true,eyeSz:0.8},
+    frostfawn:{shape:'tall',ears:'long',tail:'leaf',nose:'button',eyeSz:0.95},
+    gleamcap:{shape:'egg',ears:'curl',tail:'star',nose:'heart',belly:true,eyeSz:0.95,feat:'halo'},
+    chillpup:{shape:'round',ears:'fin',tail:'swirl',nose:'shiny',belly:true,eyeSz:0.95},
+    frostmane:{shape:'std',ears:'round',tail:'fluffy',nose:'snout',feat:'mane'},
+    brockle:{shape:'wide',ears:'round',tail:'thin',nose:'snout',belly:true},
+    tuftkin:{shape:'tall',ears:'tuft',tail:'thin',nose:'dot'},
+    lynxa:{shape:'std',ears:'tuft',tail:'puff',nose:'button',eyeSz:0.95},
+    martle:{shape:'tall',ears:'pointy',tail:'plume',nose:'tiny'},
+    fawnly:{shape:'tall',ears:'long',tail:'puff',nose:'button',eyeSz:0.95},
+    antlern:{shape:'tall',ears:'long',tail:'thin',nose:'snout',feat:'antlers'},
+    boarble:{shape:'chub',ears:'floppy',tail:'curl',nose:'snout',belly:true},
+    tuskby:{shape:'wide',ears:'pointy',tail:'spike',nose:'snout',belly:true,feat:'backspike'},
+    hazelpip:{shape:'egg',ears:'round',tail:'fluffy',nose:'button',belly:true,eyeSz:0.95},
+    sproutle:{shape:'round',ears:'crest',tail:'leaf',nose:'tiny',belly:true},
+    dewfur:{shape:'egg',ears:'floppy',tail:'puff',nose:'heart',belly:true,eyeSz:0.95},
+    snufkin:{shape:'chub',ears:'round',tail:'fluffy',nose:'shiny',belly:true},
+    birchle:{shape:'std',ears:'pointy',tail:'swirl',nose:'dot'},
+    meadowtip:{shape:'round',ears:'dish',tail:'puff',nose:'tiny',belly:true},
+    whisklet:{shape:'std',ears:'curl',tail:'thin',nose:'tiny'},
+    acornie:{shape:'egg',ears:'round',tail:'curl',nose:'button',belly:true,eyeSz:0.8},
+    glimmaw:{shape:'round',ears:'fan',tail:'plume',nose:'heart',belly:true,eyeSz:0.95,feat:'fae'},
+    mossmane:{shape:'std',ears:'round',tail:'plume',nose:'snout',feat:'mane'},
+    fernfli:{shape:'tall',ears:'horn',tail:'leaf',nose:'dot',feat:'horns'},
+    dappledot:{shape:'tall',ears:'long',tail:'star',nose:'tiny',eyeSz:0.95},
+    ramblet:{shape:'wide',ears:'horn',tail:'puff',nose:'snout',belly:true,feat:'horns'},
+    twiglet:{shape:'std',ears:'tuft',tail:'leaf',nose:'button',eyeSz:0.8},
+    sablewisp:{shape:'tall',ears:'pointy',tail:'swirl',nose:'shiny'},
+    starwisp:{shape:'round',ears:'tuft',tail:'star',nose:'shiny',belly:true,eyeSz:0.95},
+    moonpuff:{shape:'chub',ears:'floppy',tail:'puff',nose:'button',belly:true},
+    cometkin:{shape:'std',ears:'pointy',tail:'plume',nose:'dot',feat:'wings'},
+    glimmerfae:{shape:'egg',ears:'antenna',tail:'swirl',nose:'tiny',belly:true,eyeSz:0.95,feat:'fae'},
+    dawnling:{shape:'round',ears:'bunny',tail:'fluffy',nose:'heart',belly:true},
+    nebulo:{shape:'wide',ears:'fan',tail:'swirl',nose:'snout',belly:true},
+    twinklet:{shape:'egg',ears:'crest',tail:'star',nose:'tiny',belly:true,eyeSz:0.95},
+    haloen:{shape:'round',ears:'round',tail:'puff',nose:'dot',belly:true,feat:'halo'},
+    siltwing:{shape:'tall',ears:'long',tail:'plume',nose:'beak',feat:'wings'},
+    lunabun:{shape:'chub',ears:'bunny',tail:'fluffy',nose:'button',belly:true,eyeSz:0.8},
+    sparklit:{shape:'std',ears:'tuft',tail:'spike',nose:'shiny'},
+    auroria:{shape:'tall',ears:'crest',tail:'plume',nose:'snout',feat:'mane'},
+    pixiebell:{shape:'egg',ears:'fin',tail:'leaf',nose:'heart',belly:true,eyeSz:0.95,feat:'fae'},
+    duskhorn:{shape:'std',ears:'horn',tail:'spike',nose:'snout',feat:'horns'},
+    gleamot:{shape:'round',ears:'curl',tail:'curl',nose:'button',belly:true},
+    wispel:{shape:'egg',ears:'none',tail:'swirl',nose:'none',belly:true,eyeSz:0.95},
+    starlumen:{shape:'tall',ears:'long',tail:'plume',nose:'dot',feat:'antlers'},
+    glowbun:{shape:'round',ears:'bunny',tail:'puff',nose:'heart',belly:true,eyeSz:0.95},
+    vesperling:{shape:'std',ears:'pointy',tail:'thin',nose:'snout',feat:'batwings'},
+    sunnobl:{shape:'wide',ears:'fan',tail:'leaf',nose:'button',belly:true},
+    twilspike:{shape:'std',ears:'crest',tail:'spike',nose:'dot',feat:'backspike'},
+    orbil:{shape:'round',ears:'dish',tail:'none',nose:'shiny',belly:true,eyeSz:0.95},
+    faewhisp:{shape:'egg',ears:'antenna',tail:'leaf',nose:'tiny',belly:true,eyeSz:0.8,feat:'fae'},
+    clovergoat:{shape:'std',ears:'horn',tail:'thin',nose:'snout'},
+    duckabel:{shape:'egg',ears:'none',tail:'fin',nose:'beak',belly:true},
+    lambkin:{shape:'round',ears:'floppy',tail:'fluffy',nose:'button',belly:true},
+    pebblepony:{shape:'tall',ears:'pointy',tail:'plume',nose:'snout',feat:'mane'},
+    meadowmoo:{shape:'wide',ears:'floppy',tail:'thin',nose:'snout',belly:true,feat:'horns'},
+    henna:{shape:'round',ears:'crest',tail:'plume',nose:'beak',belly:true},
+    bunnybell:{shape:'egg',ears:'bunny',tail:'puff',nose:'tiny',belly:true,eyeSz:0.95},
+    woolykid:{shape:'chub',ears:'horn',tail:'puff',nose:'button',belly:true},
+    quackling:{shape:'round',ears:'none',tail:'fin',nose:'beak',belly:true,eyeSz:0.95},
+    dandelamb:{shape:'round',ears:'floppy',tail:'fluffy',nose:'heart',belly:true},
+    trotters:{shape:'chub',ears:'pointy',tail:'curl',nose:'snout',belly:true},
+    hayfin:{shape:'std',ears:'long',tail:'thin',nose:'snout'},
+    gosling:{shape:'tall',ears:'none',tail:'plume',nose:'beak',feat:'wings'},
+    mossbleat:{shape:'std',ears:'horn',tail:'leaf',nose:'snout',feat:'horns'},
+    buttercup:{shape:'round',ears:'floppy',tail:'swirl',nose:'button',belly:true},
+    foalix:{shape:'tall',ears:'pointy',tail:'plume',nose:'snout'},
+    snortle:{shape:'chub',ears:'floppy',tail:'curl',nose:'shiny',belly:true},
+    nannygoat:{shape:'tall',ears:'horn',tail:'thin',nose:'dot',feat:'horns'},
+    thistletot:{shape:'round',ears:'long',tail:'puff',nose:'tiny',belly:true,eyeSz:0.8},
+    sprigling:{shape:'std',ears:'fan',tail:'leaf',nose:'button'},
+    pondwing:{shape:'wide',ears:'none',tail:'fin',nose:'beak',belly:true,feat:'wings'},
+    curdle:{shape:'chub',ears:'curl',tail:'curl',nose:'snout',belly:true},
+    baahloo:{shape:'round',ears:'floppy',tail:'fluffy',nose:'button',belly:true,eyeSz:0.95,feat:'halo'},
+    colten:{shape:'tall',ears:'pointy',tail:'swirl',nose:'snout',feat:'mane'},
+    meerlo:{shape:'tall',ears:'round',tail:'thin',nose:'button',belly:true},
+    fennec:{shape:'round',ears:'fan',tail:'fluffy',nose:'dot',belly:true,eyeSz:0.95},
+    sandscoot:{shape:'wide',ears:'dish',tail:'spike',nose:'snout'},
+    camella:{shape:'tall',ears:'floppy',tail:'plume',nose:'snout'},
+    duneling:{shape:'egg',ears:'none',tail:'swirl',nose:'tiny',belly:true,eyeSz:0.8},
+    geckle:{shape:'wide',ears:'none',tail:'curl',nose:'tiny',eyeSz:0.95},
+    oryxie:{shape:'std',ears:'long',tail:'puff',nose:'snout',feat:'horns'},
+    warthump:{shape:'chub',ears:'pointy',tail:'thin',nose:'snout',feat:'horns'},
+    sunbask:{shape:'wide',ears:'dish',tail:'spike',nose:'dot',feat:'backspike'},
+    hyenip:{shape:'std',ears:'round',tail:'fluffy',nose:'snout'},
+    baobun:{shape:'egg',ears:'bunny',tail:'puff',nose:'button',belly:true,eyeSz:0.8},
+    caracub:{shape:'round',ears:'tuft',tail:'fluffy',nose:'dot',belly:true,eyeSz:0.95},
+    addaxen:{shape:'std',ears:'curl',tail:'thin',nose:'snout',feat:'horns'},
+    vultink:{shape:'std',ears:'crest',tail:'plume',nose:'beak',feat:'wings'},
+    scorplet:{shape:'wide',ears:'antenna',tail:'swirl',nose:'tiny'},
+    mirajinn:{shape:'tall',ears:'crest',tail:'star',nose:'shiny',eyeSz:0.95,feat:'halo'},
+    dabby:{shape:'chub',ears:'round',tail:'leaf',nose:'button',belly:true},
+    thornox:{shape:'wide',ears:'horn',tail:'spike',nose:'dot',feat:'backspike'},
+    puffquill:{shape:'round',ears:'tuft',tail:'spike',nose:'tiny',belly:true,eyeSz:0.8},
+    galloo:{shape:'tall',ears:'pointy',tail:'curl',nose:'button',belly:true,eyeSz:0.95},
+    sandara:{shape:'egg',ears:'fan',tail:'plume',nose:'heart',belly:true,eyeSz:0.8,feat:'fae'},
+    camelot:{shape:'std',ears:'floppy',tail:'swirl',nose:'snout'},
+    peeperling:{shape:'chub',ears:'none',tail:'none',nose:'button',belly:true,eyeSz:0.95},
+    vinetail:{shape:'tall',ears:'dish',tail:'swirl',nose:'snout'},
+    slothbun:{shape:'egg',ears:'round',tail:'thin',nose:'dot',belly:true,eyeSz:0.8},
+    figmunk:{shape:'round',ears:'round',tail:'fluffy',nose:'button',belly:true},
+    croaklet:{shape:'chub',ears:'none',tail:'none',nose:'tiny',belly:true,eyeSz:0.95},
+    lemurly:{shape:'tall',ears:'tuft',tail:'puff',nose:'dot',eyeSz:0.95},
+    jaggle:{shape:'wide',ears:'pointy',tail:'spike',nose:'snout',feat:'mane'},
+    puddlepip:{shape:'round',ears:'none',tail:'leaf',nose:'button',belly:true,eyeSz:0.95},
+    barksloth:{shape:'egg',ears:'floppy',tail:'thin',nose:'snout',belly:true,eyeSz:0.8},
+    scaletot:{shape:'wide',ears:'fin',tail:'fin',nose:'tiny',feat:'backspike'},
+    chirrup:{shape:'round',ears:'fan',tail:'puff',nose:'beak',belly:true,eyeSz:0.95},
+    mangotail:{shape:'std',ears:'round',tail:'curl',nose:'button',belly:true},
+    dewfrog:{shape:'chub',ears:'none',tail:'none',nose:'heart',belly:true,eyeSz:0.95},
+    snoutling:{shape:'tall',ears:'long',tail:'thin',nose:'snout'},
+    fernspirit:{shape:'egg',ears:'antenna',tail:'swirl',nose:'shiny',eyeSz:0.95,feat:'fae'},
+    cocowimple:{shape:'round',ears:'curl',tail:'fluffy',nose:'dot',belly:true},
+    parrotini:{shape:'std',ears:'crest',tail:'star',nose:'beak',feat:'wings'},
+    hoplit:{shape:'chub',ears:'none',tail:'leaf',nose:'tiny',belly:true,eyeSz:0.95},
+    clingclaw:{shape:'wide',ears:'none',tail:'curl',nose:'button',eyeSz:0.8},
+    swayloris:{shape:'egg',ears:'round',tail:'puff',nose:'button',belly:true,eyeSz:0.95},
+    glimmoth:{shape:'round',ears:'antenna',tail:'plume',nose:'tiny',belly:true,eyeSz:0.95,feat:'fae'},
+    bananook:{shape:'std',ears:'floppy',tail:'swirl',nose:'dot',belly:true},
+    quartzpup:{shape:'round',ears:'pointy',tail:'fluffy',nose:'button',belly:true},
+    emberkit:{shape:'std',ears:'tuft',tail:'spike',nose:'dot'},
+    frostling:{shape:'egg',ears:'long',tail:'puff',nose:'shiny',belly:true,eyeSz:0.95},
+    geodebun:{shape:'chub',ears:'bunny',tail:'puff',nose:'heart',belly:true},
+    lavasnout:{shape:'wide',ears:'horn',tail:'thin',nose:'snout',feat:'backspike'},
+    prismwing:{shape:'std',ears:'fan',tail:'plume',nose:'beak',feat:'wings'},
+    glacierpaw:{shape:'tall',ears:'round',tail:'fluffy',nose:'dot',belly:true},
+    cinderfae:{shape:'egg',ears:'antenna',tail:'swirl',nose:'tiny',eyeSz:0.95,feat:'fae'},
+    magmamane:{shape:'wide',ears:'round',tail:'plume',nose:'snout',feat:'mane'},
+    snowdrift:{shape:'chub',ears:'long',tail:'fluffy',nose:'button',belly:true,eyeSz:0.95},
+    amethyst:{shape:'tall',ears:'crest',tail:'star',nose:'heart'},
+    sparkmote:{shape:'round',ears:'antenna',tail:'star',nose:'tiny',belly:true,eyeSz:0.95,feat:'halo'},
+    crystback:{shape:'std',ears:'horn',tail:'spike',nose:'dot',feat:'backspike'},
+    icicleaf:{shape:'egg',ears:'curl',tail:'leaf',nose:'tiny'},
+    coalpuff:{shape:'chub',ears:'floppy',tail:'puff',nose:'dot',belly:true},
+    beryldash:{shape:'tall',ears:'dish',tail:'thin',nose:'beak'},
+    flarewing:{shape:'std',ears:'horn',tail:'spike',nose:'snout',feat:'batwings'},
+    mistsprite:{shape:'round',ears:'fan',tail:'swirl',nose:'none',eyeSz:0.95,feat:'fae'},
+    topazpebble:{shape:'round',ears:'round',tail:'curl',nose:'shiny',belly:true},
+    obsidash:{shape:'wide',ears:'horn',tail:'spike',nose:'snout',feat:'horns'},
+    jadetuft:{shape:'chub',ears:'tuft',tail:'leaf',nose:'heart',belly:true},
+    rimefin:{shape:'std',ears:'fin',tail:'fin',nose:'tiny',eyeSz:0.8},
+    sunstone:{shape:'round',ears:'crest',tail:'star',nose:'shiny',belly:true,feat:'halo'},
+    drizzlet:{shape:'egg',ears:'dish',tail:'thin',nose:'dot',belly:true,eyeSz:0.95},
   };
   Object.keys(SPECIES2).forEach(k=>{ const sp=SPECIES2[k]; ARCH[k]=(t)=>compose(t,sp); });
 
@@ -579,6 +904,31 @@
     return {back,wings,front,spark};
   }
 
+  /* ============================================================
+     COLOR MORPHS — named, collectible color variants. Most critters are
+     'classic' (their natural seed palette); a minority roll a named morph
+     (Golden, Azure, Shadow…), which is a chase-able sub-collectible per
+     species. Assigned at mint (stored as critter.variant); render recolors
+     the body to the morph while keeping the seed's pattern/eyes/shape.
+     ============================================================ */
+  const MORPH={                       // hue, saturation, lightness-delta
+    golden:{hue:46,sat:92,dl:2}, azure:{hue:208,sat:80,dl:0}, rose:{hue:338,sat:82,dl:2},
+    jade:{hue:142,sat:70,dl:0}, ember:{hue:13,sat:88,dl:0}, violet:{hue:272,sat:74,dl:0},
+    aqua:{hue:180,sat:72,dl:2}, shadow:{hue:250,sat:18,dl:-24}, albino:{hue:8,sat:10,dl:14}
+  };
+  const VARIANTS=[ {k:'classic',n:'Classic'},{k:'golden',n:'Golden'},{k:'azure',n:'Azure'},
+    {k:'rose',n:'Rose'},{k:'jade',n:'Jade'},{k:'ember',n:'Ember'},{k:'violet',n:'Violet'},
+    {k:'aqua',n:'Aqua'},{k:'shadow',n:'Shadow'},{k:'albino',n:'Albino'} ];
+  function applyVariant(t,key){
+    const m=MORPH[key]; if(!m)return;            // 'classic'/unknown → natural palette
+    const h=m.hue,s=m.sat,dl=m.dl||0, L=x=>Math.max(5,Math.min(95,x+dl));
+    t.hue=h; t.hue2=(h+t.harm)%360;
+    t.body=`hsl(${h},${s}%,${L(61)}%)`; t.bodyD=`hsl(${h},${Math.max(0,s-6)}%,${L(44)}%)`;
+    t.bodyL=`hsl(${h},${Math.min(s+12,96)}%,${L(76)}%)`; t.bodyHi=`hsl(${h},${Math.min(s+22,96)}%,${L(87)}%)`;
+    t.belly=`hsl(${h},${Math.min(s+18,92)}%,${L(90)}%)`; t.line=`hsl(${h},${Math.min(s+10,70)}%,${L(26)}%)`;
+    t.acc=`hsl(${t.hue2},74%,57%)`; t.accD=`hsl(${t.hue2},68%,44%)`;
+  }
+
   function render(seed,archetype,rarity,opts){
     rarity=(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0;   // normalize to 0–3 so aura visuals & rarityName always agree (identity for valid inputs)
     if(!ARCH[archetype])archetype=KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)];
@@ -586,6 +936,7 @@
     // explicit shiny override (combo children store a tier-scaled shiny flag); when
     // absent, fall back to the seed-derived shiny so legacy critters are unchanged.
     if(opts&&typeof opts.shiny==='boolean')t.shiny=opts.shiny;
+    if(opts&&opts.variant&&opts.variant!=='classic')applyVariant(t,opts.variant);  // recolor to a named morph
     const out=ARCH[archetype](t), inner=out[0], ax=out[1], ay=out[2];
     const c=t.uid;
     const bg=(opts&&opts.bg)?background(t):'';   // scene only in showcase views (no pond clutter)
@@ -630,5 +981,13 @@
     // tier-scaled shiny roll for fused critters — climbing the ladder makes the
     // coveted iridescent variant FAR more likely, so high combos feel special.
     // Deterministic from the child seed (own rng stream). ~7% at tier 1 → 75% cap.
-    comboShiny:(seed,tier)=>rng(seed+'~cshiny')() < Math.min(0.75, 0.05+0.025*((tier|0)))};
+    comboShiny:(seed,tier)=>rng(seed+'~cshiny')() < Math.min(0.75, 0.05+0.025*((tier|0))),
+    // --- named color morphs (collectible variant axis) ---
+    VARIANTS, variantName:k=>{const v=VARIANTS.find(x=>x.k===k);return v?v.n:'Classic';},
+    // weighted morph roll, assigned at mint & stored. Climbing tiers nudges toward
+    // the rarer named morphs, so high fusions are likelier to yield a chase variant.
+    rollVariant:(seed,tier)=>{ const r=rng(seed+'~var'); const cw=Math.max(18,60-(tier|0)*1.4);
+      const opts=[['classic',cw],['golden',7],['azure',6],['rose',6],['jade',6],['ember',5],['violet',4],['aqua',4],['shadow',1.6],['albino',1.6]];
+      let tot=0; for(const o of opts)tot+=o[1]; let x=r()*tot;
+      for(const [k,w] of opts){ x-=w; if(x<=0) return k; } return 'classic'; }};
 });

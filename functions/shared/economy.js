@@ -30,8 +30,9 @@
 
   function addCritter(fam,ownerId,rarity,special,tag,reveals,reason){
     const arch=CritterEngine.randomArchetype();
-    const c={id:id(),ownerId,seed:ownerId+":"+Date.now()+":"+Math.random().toString(36).slice(2),
-             archetype:arch,rarity,special:!!special,tag:tag||null,reason:reason||null,tier:0,createdAt:Date.now()};
+    const seed=ownerId+":"+Date.now()+":"+Math.random().toString(36).slice(2);
+    const c={id:id(),ownerId,seed,archetype:arch,rarity,special:!!special,tag:tag||null,reason:reason||null,tier:0,
+             variant:(CritterEngine.rollVariant?CritterEngine.rollVariant(seed,0):'classic'),createdAt:Date.now()};
     fam.critters.push(c); if(reveals)reveals.push(c); return c;
   }
   function grant(fam,kid,tier){ fam.inventory.push({id:id(),ownerId:kid.id,tier,status:"ready",at:Date.now()}); }
@@ -126,8 +127,9 @@
     // the child is shiny (deterministic from the child seed). Stored on the critter
     // so it renders consistently everywhere (render honors an explicit shiny flag).
     const shiny=CritterEngine.comboShiny ? CritterEngine.comboShiny(seed,tier) : false;
+    const variant=CritterEngine.rollVariant ? CritterEngine.rollVariant(seed,tier) : 'classic';
     const names=parents.map(p=>CritterEngine.name(p.archetype)).join(' + ');
-    return { seed, archetype, rarity, tier, shiny, special:true, tag:'combo', reason:'Combined from '+names };
+    return { seed, archetype, rarity, tier, shiny, variant, special:true, tag:'combo', reason:'Combined from '+names };
   }
   // Local-mode fusion: remove the parents from fam, append the child. Returns the
   // child (or {reject}). The server does the same via the Admin SDK (doc ops).

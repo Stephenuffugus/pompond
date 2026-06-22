@@ -28,6 +28,10 @@ for (const arch of CritterEngine.list) for (let r=0; r<=3; r++) {
 for (const arch of ['fox','frog','dragon','owl']) for (const tier of [2,5,8,12,17,22,28,34,40]) {
   cur[arch+'@3#t'+tier] = h(CritterEngine.render('gold:'+arch+':3', arch, 3, { tier }));
 }
+// Lock the named colour-morph rendering (a couple species × representative morphs).
+for (const arch of ['fox','bear']) for (const v of ['golden','shadow','albino','azure','ember']) {
+  cur[arch+'@1$'+v] = h(CritterEngine.render('gold:'+arch+':1', arch, 1, { variant: v }));
+}
 
 if (!fs.existsSync(GOLD)) {
   fs.writeFileSync(GOLD, JSON.stringify(cur, null, 0));

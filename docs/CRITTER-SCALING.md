@@ -126,3 +126,43 @@ A two-part push, both **additive** (Penny's pond stays intact):
 
 Net effect: the art gets richer *and* — more importantly — every critter becomes a set of
 visible goals, which is what actually drives "collect more."
+
+---
+
+## 7. BUILD UPDATE — 2026-06-22 (the above proposal, shipped)
+
+All of section 6 was built. The render constraint was lifted (no live collections to
+protect), so the enrichment applies to **every** critter, not just future ones.
+
+**Axes now (counted from the engine):**
+
+| Axis | Then | Now |
+|---|---|---|
+| Species | 305 | **609** |
+| Patterns | 6 | **10** (+rosette, dapple, tiger, starspot) |
+| Eye styles | 6 | **8** (+starry, shimmer) |
+| Part shapes / ears / tails / noses | 6 / 14 / 11 / 8 | same vocab + **8 feature layers** (wings, bat-wings, fae, back-spike, mane, horns, antlers, halo) |
+| **Colour morphs** | — | **10** named, collectible (Classic + 9: Golden/Azure/Rose/Jade/Ember/Violet/Aqua/Shadow/Albino) |
+| Shading | flat 3-stop | 4-stop with bright highlight (richer form) |
+
+**Updated uniqueness math** (conservative 12 hue buckets):
+`12 × harmony(6) × pattern(10) × eye(8) × blush(2) × accessory(~4)` ≈ **46k** per
+species-rarity → × 4 rarities × 2 shiny × 609 species ≈ **2.2 billion**, × 8 tier
+prestige stages ≈ **~18 billion** visually distinct critters, with **10 named morphs** as
+a discrete overlay on top. Duplicate odds are effectively nil.
+
+**Collectibility shipped (the actual "collect more" engine):**
+- **Colour morphs** — a named, tracked variant axis assigned at mint; high-tier fusions
+  bias toward the rarer morphs (Shadow/Albino), so morphs are *earned*.
+- **Dex → collection screen** — completion bar (X/609), header stats (shiny count,
+  morphs N/9, top tier), per-species **rarity stars + shiny + tier + variant-count**
+  badges, tap-to-inspect, and **11 milestone badges** (species counts, first shiny,
+  5 morphs, first fusion, tier 10/20/Apex).
+- **Critter of the Day** — a deterministic daily spotlight in the Dex (a reason to return
+  + a discovery target).
+- **Fusion discovery hints** — the Mix preview flags **🔭 NEW!** when a fusion would
+  produce an unowned species, plus the morph/shiny it will yield, so mixing becomes a
+  way to *aim* at gaps in the collection.
+
+**Not done (future, needs structured data):** real habitat groupings per species
+(arbitrary hashing would be hollow; worth doing only with curated habitat tags).
