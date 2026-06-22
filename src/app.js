@@ -222,7 +222,7 @@
       return;
     }
     Economy.resolveChoice(fam,kid,saveUp,revealQ); save();
-    playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); });
+    playReveals(kid.id);
   }
   // 🧬 fuse 2–3 of the kid's critters into one new one (server-authoritative in
   // cloud mode; same shared math locally). Consumed parents lose their saved spot.
@@ -433,6 +433,7 @@
         ${bucketHTML("m","Medium",kid.buckets.m,cap.medCap)}
         ${bucketHTML("b","Big",kid.buckets.b,cap.bigCap)}
       </div>
+      ${(kid.choices||0)>0?`<button class="choicebanner" id="choicebtn">💧 A pond filled up! <b>Tap to choose your reward</b> 🏆</button>`:""}
       ${ready.length?`<div class="label"><span>Rewards to spend 🎉</span><span class="ln"></span></div><div class="tokens" id="tok"></div>`:""}
       <div class="label"><span>My Pond</span><span class="ln"></span>${(!combineMode&&!calm()&&crittersOf(kid.id).length>=2)?`<button class="combinebtn" id="combineBtn">✨ Mix!</button>`:""}</div>
       ${combineMode?`<div class="combinebar"><div class="cbtop"><span id="combinemsg">Tap 2–3 critters to mix ✨</span><span class="cbtns"><button id="combineCancel">Cancel</button><button id="combineGo" disabled>Mix</button></span></div><div class="cbprev" id="combineprev"></div></div>`:""}
@@ -489,7 +490,7 @@
         +(done?'<span class="mini" style="background:#5BB98C">✓ today</span>':'<span class="rs" style="color:var(--soft);font-weight:800">not yet</span>');
       acl.appendChild(row);});
 
-    if((kid.choices||0)>0) setTimeout(()=>choiceModal(kid),350);
+    const chb=app.querySelector("#choicebtn"); if(chb)chb.onclick=()=>choiceModal(kid);   // tap-when-ready (no forced popup)
   }
   function bucketHTML(k,name,val,cap){
     const pct=Math.min(100,(val/cap)*100);
@@ -1545,7 +1546,7 @@
     if(!critters||!critters.length) return;
     revealQ=critters.slice();
     const kid=me();
-    if(kid && view==="kid"){ playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); }); }
+    if(kid && view==="kid"){ playReveals(kid.id); }
     else revealQ=[];
   };
   PP.boot=render;

@@ -160,6 +160,11 @@
   .combinebtn{border:none;background:linear-gradient(135deg,#8be9e0 0%,#3FA7A1 55%,#2f8f89 100%);color:#fff;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.3px;border-radius:999px;padding:11px 22px;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;overflow:hidden;transition:transform .12s;
     box-shadow:0 8px 20px -5px rgba(63,167,161,.7), inset 0 1px 0 rgba(255,255,255,.45);animation:mixpulse 2.2s ease-in-out infinite}
   .combinebtn:active{transform:scale(.93)}
+  /* opt-in "pond full" choice banner (replaces the old forced popup) */
+  .choicebanner{display:block;width:100%;border:none;background:linear-gradient(135deg,#7fd3ff,#5BB1FF);color:#fff;font-family:var(--body);font-weight:800;font-size:15px;border-radius:16px;padding:14px;margin-top:12px;cursor:pointer;box-shadow:0 8px 20px -6px rgba(91,177,255,.6);animation:choicebob 2.2s ease-in-out infinite}
+  .choicebanner b{font-weight:900}
+  .choicebanner:active{transform:scale(.97)}
+  @keyframes choicebob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
   .combinebtn::after{content:"";position:absolute;top:0;left:-65%;width:45%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);transform:skewX(-18deg);animation:mixshine 3.4s ease-in-out infinite;pointer-events:none}
   @keyframes mixpulse{0%,100%{box-shadow:0 8px 20px -5px rgba(63,167,161,.7),0 0 0 0 rgba(120,225,215,.55),inset 0 1px 0 rgba(255,255,255,.45)}50%{box-shadow:0 10px 24px -5px rgba(63,167,161,.8),0 0 0 10px rgba(120,225,215,0),inset 0 1px 0 rgba(255,255,255,.45)}}
   @keyframes mixshine{0%{left:-65%}45%,100%{left:140%}}
@@ -2000,7 +2005,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       return;
     }
     Economy.resolveChoice(fam,kid,saveUp,revealQ); save();
-    playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); });
+    playReveals(kid.id);
   }
   // 🧬 fuse 2–3 of the kid's critters into one new one (server-authoritative in
   // cloud mode; same shared math locally). Consumed parents lose their saved spot.
@@ -2211,6 +2216,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
         ${bucketHTML("m","Medium",kid.buckets.m,cap.medCap)}
         ${bucketHTML("b","Big",kid.buckets.b,cap.bigCap)}
       </div>
+      ${(kid.choices||0)>0?`<button class="choicebanner" id="choicebtn">💧 A pond filled up! <b>Tap to choose your reward</b> 🏆</button>`:""}
       ${ready.length?`<div class="label"><span>Rewards to spend 🎉</span><span class="ln"></span></div><div class="tokens" id="tok"></div>`:""}
       <div class="label"><span>My Pond</span><span class="ln"></span>${(!combineMode&&!calm()&&crittersOf(kid.id).length>=2)?`<button class="combinebtn" id="combineBtn">✨ Mix!</button>`:""}</div>
       ${combineMode?`<div class="combinebar"><div class="cbtop"><span id="combinemsg">Tap 2–3 critters to mix ✨</span><span class="cbtns"><button id="combineCancel">Cancel</button><button id="combineGo" disabled>Mix</button></span></div><div class="cbprev" id="combineprev"></div></div>`:""}
@@ -2267,7 +2273,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
         +(done?'<span class="mini" style="background:#5BB98C">✓ today</span>':'<span class="rs" style="color:var(--soft);font-weight:800">not yet</span>');
       acl.appendChild(row);});
 
-    if((kid.choices||0)>0) setTimeout(()=>choiceModal(kid),350);
+    const chb=app.querySelector("#choicebtn"); if(chb)chb.onclick=()=>choiceModal(kid);   // tap-when-ready (no forced popup)
   }
   function bucketHTML(k,name,val,cap){
     const pct=Math.min(100,(val/cap)*100);
@@ -3323,7 +3329,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     if(!critters||!critters.length) return;
     revealQ=critters.slice();
     const kid=me();
-    if(kid && view==="kid"){ playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); }); }
+    if(kid && view==="kid"){ playReveals(kid.id); }
     else revealQ=[];
   };
   PP.boot=render;

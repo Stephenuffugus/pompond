@@ -78,14 +78,16 @@ async function run() {
   ok('school Pom logged + tagged', s.log.some(e => e.type === 'school') && s.critters.some(c => c.tag === 'school'));
   ok('medium fill queued a choice', (maya.choices || 0) >= 1);
 
-  // resolve choice on kid screen
+  // resolve choice on kid screen — now opt-in via a banner (no forced popup)
   click(document.querySelector('#leave')); await wait(15);
-  click(card(/Maya/)); await wait(450);
-  const choiceOpen = !!document.querySelector('#scrim .choice');
-  ok('choice modal appears on kid view', choiceOpen);
-  if (choiceOpen) { click(document.querySelector('#scrim .choice .opt[data-c="save"]')); await wait(300); }
+  click(card(/Maya/)); await wait(300);
+  ok('no forced choice popup on the kid view', !document.querySelector('#scrim .choice'));
+  const banner = document.querySelector('#choicebtn');
+  ok('a tappable "pond full" choice banner is shown', !!banner);
+  click(banner); await wait(60);
+  click(document.querySelector('#scrim .choice .opt[data-c="save"]')); await wait(300);
   s = state(); maya = s.members.find(m => m.name === 'Maya');
-  ok('saving advances big bucket + clears choice', maya.buckets.b === 1 && (maya.choices || 0) === 0);
+  ok('tapping the banner + saving advances big bucket + clears choice', maya.buckets.b === 1 && (maya.choices || 0) === 0);
 
   // --- currency rename ---
   click(document.querySelector('#leave')); await wait(15);

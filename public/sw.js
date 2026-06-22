@@ -5,7 +5,7 @@
    CACHE on any shell change — the no-cache header on sw.js makes the browser
    revalidate this file, and a changed CACHE name purges every old cache on
    activate, so clients can never get stuck on stale code. */
-const CACHE = 'pompond-v2';
+const CACHE = 'pompond-v3';
 const SHELL = [
   './',
   './index.html',
