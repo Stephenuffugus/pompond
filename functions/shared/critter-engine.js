@@ -583,6 +583,9 @@
     rarity=(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0;   // normalize to 0–3 so aura visuals & rarityName always agree (identity for valid inputs)
     if(!ARCH[archetype])archetype=KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)];
     const t=traits(seed,rarity,archetype);
+    // explicit shiny override (combo children store a tier-scaled shiny flag); when
+    // absent, fall back to the seed-derived shiny so legacy critters are unchanged.
+    if(opts&&typeof opts.shiny==='boolean')t.shiny=opts.shiny;
     const out=ARCH[archetype](t), inner=out[0], ax=out[1], ay=out[2];
     const c=t.uid;
     const bg=(opts&&opts.bg)?background(t):'';   // scene only in showcase views (no pond clutter)
@@ -623,5 +626,9 @@
     // --- deterministic helpers for combining critters ---
     archetypeFor:(seed)=>KEYS[hash(String(seed))%KEYS.length],   // a species from a seed
     combineSeed:(seeds)=>'cmb:'+hash((seeds||[]).slice().sort().join('|')).toString(36), // stable child seed
-    isShiny:(seed,arch,rarity)=>traits(seed,(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0,ARCH[arch]?arch:KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)]).shiny}; // seed-derived shiny flag
+    isShiny:(seed,arch,rarity)=>traits(seed,(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0,ARCH[arch]?arch:KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)]).shiny, // seed-derived shiny flag
+    // tier-scaled shiny roll for fused critters — climbing the ladder makes the
+    // coveted iridescent variant FAR more likely, so high combos feel special.
+    // Deterministic from the child seed (own rng stream). ~7% at tier 1 → 75% cap.
+    comboShiny:(seed,tier)=>rng(seed+'~cshiny')() < Math.min(0.75, 0.05+0.025*((tier|0)))};
 });

@@ -191,8 +191,12 @@
   function showReveal(c,cb){
     const ov=document.getElementById("reveal");
     const label=c.special?(c.tag==="combo"?("✨ "+esc(Evolution.tierName(c.tier))+"!"):CATMAP[c.tag]?CATMAP[c.tag].emoji+" "+CATMAP[c.tag].name+"!":"✨ Bonus Critter!"):c.rarity>=3?"🏆 LEGENDARY!":c.rarity===2?"💎 Rare Evolution!":c.rarity===1?"⬆️ Evolved!":"🥚 New Critter!";
-    const shiny=CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
-    ov.innerHTML=`<div class="reveal-card"><div class="rl-sub">${shiny?"✨ SHINY! ":""}${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier})}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
+    // combo children store a tier-scaled shiny flag; everyone else is seed-derived.
+    const shiny=(typeof c.shiny==="boolean")?c.shiny:CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
+    // discovery hook: first time this kid sees this species (mostly via fusion)
+    const firstSeen=c.tag==="combo"&&!fam.critters.some(x=>x.id!==c.id&&x.ownerId===c.ownerId&&x.archetype===c.archetype);
+    const banners=(firstSeen?'<div class="rl-new">🔭 NEW SPECIES!</div>':'')+(shiny?'<div class="rl-shiny">✨ SHINY!</div>':'');
+    ov.innerHTML=`<div class="reveal-card">${banners}<div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier,shiny:c.shiny})}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
     ov.classList.add("show"); confetti(); beep(c.rarity>=2||c.special);
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
     ov.onclick=close; setTimeout(close,c.rarity>=2?2400:1500);
@@ -436,7 +440,7 @@
       w.style.left=dx+"%"; w.style.top=dy+"%";
       w.style.animationDelay=(i%6)*0.4+"s";
       w.style.transform=`scale(${1+c.rarity*0.12})`;
-      w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity,{tier:c.tier});
+      w.innerHTML=renderCritter(c.seed,c.archetype,c.rarity,{tier:c.tier,shiny:c.shiny});
       if(critterKeep[c.id]){ w.classList.add("kept"); w.insertAdjacentHTML("beforeend",'<span class="keepbadge">❤️</span>'); }
       if(combineMode){ if(combineSel.includes(c.id))w.classList.add("csel"); else if(critterKeep[c.id])w.classList.add("klock"); }
       makeCritterDraggable(w,c,pond);
@@ -503,7 +507,7 @@
     if(prev){
       if(n>=2){ const parents=combineSel.map(id=>fam.critters.find(c=>c.id===id)).filter(Boolean);
         const child=Economy.makeCombo(parents);
-        prev.innerHTML=`<span class="cbarrow">→</span><div class="cbchild">${renderCritter(child.seed,child.archetype,child.rarity,{tier:child.tier})}</div><span class="cbname">${CritterEngine.name(child.archetype)}<br><b>🌟 ${esc(Evolution.tierName(child.tier))}</b></span>`;
+        prev.innerHTML=`<span class="cbarrow">→</span><div class="cbchild">${renderCritter(child.seed,child.archetype,child.rarity,{tier:child.tier,shiny:child.shiny})}</div><span class="cbname">${CritterEngine.name(child.archetype)}<br><b>🌟 ${esc(Evolution.tierName(child.tier))}</b>${child.shiny?'<br><b style="color:#d56fb0">✨ Shiny!</b>':''}</span>`;
       } else prev.innerHTML="";
     }
     if(go){ go.disabled=n<2; go.textContent = n>=2?"Mix! ✨":"Mix"; }
@@ -550,7 +554,7 @@
     const reason=c.reason?esc(c.reason):null;
     const kept=!!critterKeep[c.id], shiny=CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
     openSheet(`<h3 style="text-align:center">${shiny?"✨ ":""}${CritterEngine.name(c.archetype)}${kept?" ❤️":""}</h3>
-      <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier})}</div>
+      <div style="width:160px;height:160px;margin:0 auto">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier,shiny:c.shiny})}</div>
       <p style="text-align:center;font-weight:800;color:var(--soft);margin:6px 0 8px">${shiny?'✨ Shiny · ':''}${(c.tier|0)>0?'🌟 '+esc(Evolution.tierName(c.tier))+' · ':''}${CritterEngine.rarityName(c.rarity)}${c.special?(c.tag==="combo"?" · ✨ Mixed":CATMAP[c.tag]?" · "+CATMAP[c.tag].emoji+" "+esc(CATMAP[c.tag].name):" · ✨ Bonus"):""}</p>
       <div class="critreason">${reason?`<span class="rlbl">Earned for</span>${reason}`:`An early critter 🐣`}</div>
       <div class="minrow" style="margin-top:12px;gap:8px">
@@ -576,7 +580,7 @@
   }
   function cardSVG(kid,c){
     const st=cardStats(kid), W=520,H=690;
-    const inner=c?renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier}).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,''):'';
+    const inner=c?renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier,shiny:c.shiny}).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,''):'';
     const tierTxt=c&&(c.tier||0)>0?Evolution.tierName(c.tier):CritterEngine.rarityName(c?c.rarity:0);
     const shiny=c&&CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
     const pills=[ (kid.palms||0)+" "+cnames(), st.mine.length+" critters", st.species+"/"+CritterEngine.list.length+" kinds", (kid.streak||0)+"-day streak" ];
@@ -630,7 +634,7 @@
   function wallOfFame(){
     const ks=kids(); const totalPoms=ks.reduce((s,k)=>s+(k.palms||0),0);
     const tiles=ks.map(k=>{ const st=cardStats(k);
-      const art=st.top?`<div class="wofart">${renderCritter(st.top.seed,st.top.archetype,st.top.rarity,{tier:st.top.tier})}</div>`:`<div class="wofart" style="font-size:34px">${k.emoji||'🧒'}</div>`;
+      const art=st.top?`<div class="wofart">${renderCritter(st.top.seed,st.top.archetype,st.top.rarity,{tier:st.top.tier,shiny:st.top.shiny})}</div>`:`<div class="wofart" style="font-size:34px">${k.emoji||'🧒'}</div>`;
       return `<div class="wofcard" style="--kc:${k.color}">${art}<div class="wofname">${esc(k.name)}</div><div class="wofstat">${k.palms||0} ${esc(cnames())} · ${st.species}/${CritterEngine.list.length} kinds${k.streak?` · 🔥${k.streak}`:''}</div></div>`;
     }).join('');
     openSheet(`<h3>🏆 Family Wall of Fame</h3>
@@ -685,7 +689,7 @@
         const owned=pool.filter(c=>c.archetype===k);
         if(!owned.length)return `<div style="text-align:center;opacity:.45"><div style="width:62px;height:62px;margin:0 auto;filter:grayscale(1) contrast(.4) brightness(1.1)">${renderCritter("mystery:"+k,k,0)}</div><div style="font-size:11px;font-weight:800;color:var(--soft)">???</div></div>`;
         const best=owned.reduce((a,b)=>b.rarity>a.rarity?b:a);
-        return `<div style="text-align:center"><div style="width:62px;height:62px;margin:0 auto">${renderCritter(best.seed,best.archetype,best.rarity,{tier:best.tier})}</div><div style="font-size:11px;font-weight:800;color:var(--ink)">${CritterEngine.name(k)} ×${owned.length}</div></div>`;
+        return `<div style="text-align:center"><div style="width:62px;height:62px;margin:0 auto">${renderCritter(best.seed,best.archetype,best.rarity,{tier:best.tier,shiny:best.shiny})}</div><div style="font-size:11px;font-weight:800;color:var(--ink)">${CritterEngine.name(k)} ×${owned.length}</div></div>`;
       }).join("");
       openSheet(`<h3>${esc(kid.name)}'s Collection <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${found}/${total} species · ${pool.length} critters</span></h3>
         <div class="pbar" style="margin:-4px 0 14px"><i style="width:${Math.round(found/total*100)}%"></i></div>
@@ -721,7 +725,7 @@
       let cls="climbrung", art, info;
       if(owned.length){
         const best=owned.reduce((a,b)=>(b.rarity||0)>(a.rarity||0)?b:a);
-        art=`<div class="cart">${renderCritter(best.seed,best.archetype,best.rarity,{tier:best.tier})}</div>`;
+        art=`<div class="cart">${renderCritter(best.seed,best.archetype,best.rarity,{tier:best.tier,shiny:best.shiny})}</div>`;
         info=`<div class="cname">${name}${t===highest?' <span class="chere">you\'re here</span>':''}</div><div class="csub">${owned.length} critter${owned.length>1?"s":""} here</div>`;
       } else if(t===highest+1){
         cls+=" next"; art=`<div class="cart climbico">✨</div>`;

@@ -122,8 +122,12 @@
     const maxR=parents.reduce((m,p)=>Math.max(m,p.rarity||0),0);
     const rarity=Math.min(3, maxR + (parents.length>=3 ? 2 : 1));
     const tier=Evolution ? Evolution.childTier(parents.map(p=>p.tier||0), parents.length) : 0;
+    // shiny is now EARNED by climbing: the higher the fused tier, the more likely
+    // the child is shiny (deterministic from the child seed). Stored on the critter
+    // so it renders consistently everywhere (render honors an explicit shiny flag).
+    const shiny=CritterEngine.comboShiny ? CritterEngine.comboShiny(seed,tier) : false;
     const names=parents.map(p=>CritterEngine.name(p.archetype)).join(' + ');
-    return { seed, archetype, rarity, tier, special:true, tag:'combo', reason:'Combined from '+names };
+    return { seed, archetype, rarity, tier, shiny, special:true, tag:'combo', reason:'Combined from '+names };
   }
   // Local-mode fusion: remove the parents from fam, append the child. Returns the
   // child (or {reject}). The server does the same via the Admin SDK (doc ops).

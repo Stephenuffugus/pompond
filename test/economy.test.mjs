@@ -98,6 +98,12 @@ ok('hatched critters start at tier 0', addCritterTier() === 0);
 ok('2-fuse of tier-0 → tier 1', cres.child.tier === 1);
 ok('3-fuse of tier-0 → tier 2', m3.tier === 2);
 ok('combining higher tiers climbs (t2 + t2 → t3)', Economy.makeCombo([{seed:'x',archetype:'frog',rarity:0,tier:2},{seed:'y',archetype:'koi',rarity:0,tier:2}]).tier === 3);
+// shiny is now EARNED by climbing — combo children carry a boolean shiny flag and
+// high-tier fusions are far likelier to be shiny than low-tier ones.
+ok('combo child carries a shiny boolean', typeof Economy.makeCombo([{seed:'a',archetype:'frog',rarity:0,tier:0},{seed:'b',archetype:'koi',rarity:0,tier:0}]).shiny === 'boolean');
+{ let lo=0,hi=0; for(let i=0;i<300;i++){ if(Economy.makeCombo([{seed:'p'+i,archetype:'frog',rarity:0,tier:0},{seed:'q'+i,archetype:'koi',rarity:0,tier:0}]).shiny)lo++;
+    if(Economy.makeCombo([{seed:'p'+i,archetype:'frog',rarity:0,tier:30},{seed:'q'+i,archetype:'koi',rarity:0,tier:30}]).shiny)hi++; }
+  ok('higher-tier fusions are much shinier (tier30 > tier1)', hi > lo*2); }
 function addCritterTier(){ const f=freshFam(); const rv=[]; Economy.earn(f, kid(f), {type:'chore'}, rv); return f.critters[0].tier; }
 // can't fuse another kid's critter / need 2+
 let cf2 = freshFam(); cf2.critters = cf.critters.slice();
