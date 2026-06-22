@@ -133,13 +133,13 @@
   function pEars(type,t,g,cx,ty,sp){const f=g.fill,ic=t.belly;
     if(type==='round')return `<circle cx="${f1(cx-sp)}" cy="${ty}" r="6.2" fill="${f}"/><circle cx="${f1(cx+sp)}" cy="${ty}" r="6.2" fill="${f}"/><circle cx="${f1(cx-sp)}" cy="${f1(ty+1)}" r="3" fill="${ic}"/><circle cx="${f1(cx+sp)}" cy="${f1(ty+1)}" r="3" fill="${ic}"/>`;
     if(type==='pointy')return `<path d="M${f1(cx-sp-3)} ${f1(ty+5)} l-1 -13 10 7z" fill="${f}"/><path d="M${f1(cx+sp+3)} ${f1(ty+5)} l1 -13 -10 7z" fill="${f}"/><path d="M${f1(cx-sp-1)} ${f1(ty+3)} l-1 -7 5 4z" fill="${ic}"/><path d="M${f1(cx+sp+1)} ${f1(ty+3)} l1 -7 -5 4z" fill="${ic}"/>`;
-    if(type==='long')return `<ellipse cx="${f1(cx-sp+2)}" cy="${f1(ty-9)}" rx="4.6" ry="15" fill="${f}"/><ellipse cx="${f1(cx+sp-2)}" cy="${f1(ty-9)}" rx="4.6" ry="15" fill="${f}"/><ellipse cx="${f1(cx-sp+2)}" cy="${f1(ty-8)}" rx="2.2" ry="10" fill="${ic}"/><ellipse cx="${f1(cx+sp-2)}" cy="${f1(ty-8)}" rx="2.2" ry="10" fill="${ic}"/>`;
+    if(type==='long'){const lx=f1(cx-sp+2),rx=f1(cx+sp-2);return `<ellipse cx="${lx}" cy="${f1(ty-6)}" rx="4.8" ry="13" fill="${f}"/><ellipse cx="${rx}" cy="${f1(ty-6)}" rx="4.8" ry="13" fill="${f}"/><ellipse cx="${lx}" cy="${f1(ty-5)}" rx="2.3" ry="8.5" fill="${ic}"/><ellipse cx="${rx}" cy="${f1(ty-5)}" rx="2.3" ry="8.5" fill="${ic}"/>`;}
     if(type==='tuft')return `<path d="M${f1(cx-sp-1)} ${ty} l-2 -11 9 7z" fill="${f}"/><path d="M${f1(cx+sp+1)} ${ty} l2 -11 -9 7z" fill="${f}"/>`;
     if(type==='floppy')return `<ellipse cx="${f1(cx-sp-3)}" cy="${f1(ty+6)}" rx="4.6" ry="10" fill="${f}" transform="rotate(22 ${f1(cx-sp-3)} ${f1(ty+6)})"/><ellipse cx="${f1(cx+sp+3)}" cy="${f1(ty+6)}" rx="4.6" ry="10" fill="${f}" transform="rotate(-22 ${f1(cx+sp+3)} ${f1(ty+6)})"/>`;
     if(type==='horn')return `<path d="M${f1(cx-sp+1)} ${ty} l-1 -9 4 8z" fill="${t.bodyL}"/><path d="M${f1(cx+sp-1)} ${ty} l1 -9 -4 8z" fill="${t.bodyL}"/>`;
     if(type==='fin')return `<path d="M${f1(cx-sp-1)} ${f1(ty+3)} q-8 -7 -1 -11 q4 4 5 10z" fill="${t.acc}" opacity=".85"/><path d="M${f1(cx+sp+1)} ${f1(ty+3)} q8 -7 1 -11 q-4 4 -5 10z" fill="${t.acc}" opacity=".85"/>`;
     // ---- new parts (append-only; existing types above are untouched) ----
-    if(type==='bunny')return `<ellipse cx="${f1(cx-sp+2)}" cy="${f1(ty-12)}" rx="3.8" ry="19" fill="${f}"/><ellipse cx="${f1(cx+sp-2)}" cy="${f1(ty-12)}" rx="3.8" ry="19" fill="${f}"/><ellipse cx="${f1(cx-sp+2)}" cy="${f1(ty-11)}" rx="1.8" ry="13" fill="${ic}"/><ellipse cx="${f1(cx+sp-2)}" cy="${f1(ty-11)}" rx="1.8" ry="13" fill="${ic}"/>`;
+    if(type==='bunny'){const lx=f1(cx-sp+3),rx=f1(cx+sp-3),by=f1(ty+6);return `<ellipse cx="${lx}" cy="${f1(ty-9)}" rx="4.2" ry="16" fill="${f}"/><ellipse cx="${rx}" cy="${f1(ty-9)}" rx="4.2" ry="16" fill="${f}"/><ellipse cx="${lx}" cy="${f1(ty-8)}" rx="2" ry="11" fill="${ic}"/><ellipse cx="${rx}" cy="${f1(ty-8)}" rx="2" ry="11" fill="${ic}"/><ellipse cx="${lx}" cy="${by}" rx="5" ry="5" fill="${f}"/><ellipse cx="${rx}" cy="${by}" rx="5" ry="5" fill="${f}"/>`;}
     if(type==='curl')return `<path d="M${f1(cx-sp)} ${ty} q-10 -3 -8 -12 q1 -7 7 -5 q3 1 1 5" stroke="${t.bodyL}" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M${f1(cx+sp)} ${ty} q10 -3 8 -12 q-1 -7 -7 -5 q-3 1 -1 5" stroke="${t.bodyL}" stroke-width="3.6" fill="none" stroke-linecap="round"/>`;
     if(type==='antenna')return `<path d="M${f1(cx-3)} ${f1(ty-1)} q-3 -10 -7 -13" stroke="${t.line}" stroke-width="1.6" fill="none"/><path d="M${f1(cx+3)} ${f1(ty-1)} q3 -10 7 -13" stroke="${t.line}" stroke-width="1.6" fill="none"/><circle cx="${f1(cx-10)}" cy="${f1(ty-15)}" r="2.7" fill="${t.acc}"/><circle cx="${f1(cx+10)}" cy="${f1(ty-15)}" r="2.7" fill="${t.acc}"/>`;
     if(type==='fan')return `<ellipse cx="${f1(cx-sp-2)}" cy="${f1(ty+3)}" rx="8.5" ry="10" fill="${f}"/><ellipse cx="${f1(cx+sp+2)}" cy="${f1(ty+3)}" rx="8.5" ry="10" fill="${f}"/><ellipse cx="${f1(cx-sp-2)}" cy="${f1(ty+3)}" rx="4.5" ry="6" fill="${ic}"/><ellipse cx="${f1(cx+sp+2)}" cy="${f1(ty+3)}" rx="4.5" ry="6" fill="${ic}"/>`;
@@ -190,10 +190,18 @@
       if(s.belly)o.push(`<ellipse cx="50" cy="64" rx="9" ry="16" fill="${t.belly}"/>`);
       o.push(mark(t,50,58,0.85),pEars(s.ears,t,g,50,34,11));accY=17;
       o.push(eyes(t,44,56,48,s.eyeSz||0.85),pNose(s.nose,t,50,55),smile(50,60,3.5),blush(t,40,60,57));
-    }else if(sh==='wide'){o.push(shadow(50,86,26),pTail(s.tail,t,g),`<ellipse cx="50" cy="62" rx="26" ry="17" fill="${g.fill}"/>`);
-      if(s.belly)o.push(`<ellipse cx="50" cy="66" rx="14" ry="9" fill="${t.belly}"/>`);
-      o.push(mark(t,50,60,0.9),pEars(s.ears,t,g,50,48,16));accY=30;
-      o.push(eyes(t,42,58,58,s.eyeSz||0.85),pNose(s.nose,t,50,64),smile(50,68,4),blush(t,36,64,63));
+    }else if(sh==='wide'){o.push(shadow(50,86,26),pTail(s.tail,t,g),`<ellipse cx="50" cy="60" rx="26" ry="19" fill="${g.fill}"/>`);
+      if(s.belly)o.push(`<ellipse cx="50" cy="64" rx="14" ry="10" fill="${t.belly}"/>`);
+      o.push(mark(t,50,58,0.9),pEars(s.ears,t,g,50,46,12));accY=26;
+      o.push(eyes(t,42,58,55,s.eyeSz||0.85),pNose(s.nose,t,50,60),smile(50,64,4),blush(t,36,64,59));
+    }else if(sh==='fish'){o.push(shadow(50,88,22),
+      `<path d="M25 60 q-14 -10 -17 1 q3 9 17 8z" fill="${t.acc}" opacity=".92"/>`,
+      `<path d="M75 60 q14 -10 17 1 q-3 9 -17 8z" fill="${t.acc}" opacity=".92"/>`,
+      `<ellipse cx="50" cy="60" rx="23" ry="21" fill="${g.fill}"/>`,
+      `<path d="M40 41 q10 -10 20 0 q-10 -1 -20 0z" fill="${t.acc}"/>`);
+      if(s.belly)o.push(`<ellipse cx="50" cy="65" rx="13" ry="11" fill="${t.belly}"/>`);
+      o.push(mark(t,50,60,0.9));accY=22;
+      o.push(eyes(t,42,58,55,s.eyeSz||0.95),`<path d="M44 67 q6 5 12 0" stroke="#2c2622" stroke-width="2" fill="none" stroke-linecap="round"/>`,blush(t,36,64,62));
     }else if(sh==='egg'){o.push(shadow(50,88,18),pTail(s.tail,t,g),`<path d="M50 29 q-19 0 -19 29 q0 24 19 24 q19 0 19 -24 q0 -29 -19 -29z" fill="${g.fill}"/>`);
       if(s.belly)o.push(`<ellipse cx="50" cy="60" rx="11" ry="16" fill="${t.belly}"/>`);
       o.push(mark(t,50,56,0.85),pEars(s.ears,t,g,50,32,11));accY=18;
@@ -288,9 +296,9 @@
     birdie:{shape:'round',ears:'none',tail:'fin',nose:'beak'},
     robin:{shape:'std',ears:'none',tail:'thin',nose:'beak',belly:true},
     chickling:{shape:'round',ears:'none',tail:'puff',nose:'beak'},
-    finling:{shape:'wide',ears:'fin',tail:'fin',nose:'none',eyeSz:0.8},
-    guppy:{shape:'wide',ears:'fin',tail:'fin',nose:'none'},
-    splash:{shape:'round',ears:'fin',tail:'fin',nose:'dot'},
+    finling:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.8},
+    guppy:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    splash:{shape:'fish',ears:'none',tail:'none',nose:'none'},
     tortie:{shape:'wide',ears:'none',tail:'none',nose:'dot',belly:true},
     gecko2:{shape:'wide',ears:'none',tail:'curl',nose:'dot'},
     moleling:{shape:'round',ears:'none',tail:'thin',nose:'snout'},
@@ -486,37 +494,37 @@
     caddis:{shape:'std',ears:'antenna',tail:'plume',nose:'button',belly:true},
     fenmo:{shape:'chub',ears:'none',tail:'thin',nose:'beak',belly:true},
     backswim:{shape:'egg',ears:'tuft',tail:'puff',nose:'snout'},
-    minnow:{shape:'wide',ears:'bunny',tail:'star',nose:'dot',eyeSz:0.95},
-    stickleback:{shape:'tall',ears:'crest',tail:'none',nose:'none'},
-    sunfish:{shape:'round',ears:'pointy',tail:'curl',nose:'tiny',belly:true,eyeSz:0.8},
-    dace:{shape:'std',ears:'horn',tail:'spike',nose:'shiny',belly:true},
-    chub2:{shape:'chub',ears:'antenna',tail:'swirl',nose:'heart'},
-    ruffe:{shape:'egg',ears:'none',tail:'fluffy',nose:'button'},
-    gudgeon:{shape:'wide',ears:'tuft',tail:'fin',nose:'beak',eyeSz:0.95},
-    vendace:{shape:'tall',ears:'bunny',tail:'leaf',nose:'snout',belly:true},
-    burbot:{shape:'round',ears:'crest',tail:'plume',nose:'dot',belly:true,eyeSz:0.8},
-    tinca:{shape:'std',ears:'pointy',tail:'thin',nose:'none'},
-    rudd:{shape:'chub',ears:'horn',tail:'puff',nose:'tiny'},
-    bleak:{shape:'egg',ears:'antenna',tail:'star',nose:'shiny'},
-    loach:{shape:'wide',ears:'none',tail:'none',nose:'heart',belly:true,eyeSz:0.95},
-    barbel:{shape:'tall',ears:'tuft',tail:'curl',nose:'button',belly:true},
-    nase:{shape:'round',ears:'bunny',tail:'spike',nose:'beak',eyeSz:0.8},
-    ide:{shape:'std',ears:'crest',tail:'swirl',nose:'snout'},
-    asp:{shape:'chub',ears:'pointy',tail:'fluffy',nose:'dot'},
-    zander:{shape:'egg',ears:'horn',tail:'fin',nose:'none',belly:true},
-    wels:{shape:'wide',ears:'antenna',tail:'leaf',nose:'tiny',belly:true,eyeSz:0.95},
-    sterlet:{shape:'tall',ears:'none',tail:'plume',nose:'shiny'},
-    bream:{shape:'round',ears:'tuft',tail:'thin',nose:'heart',eyeSz:0.8},
-    carp2:{shape:'std',ears:'bunny',tail:'puff',nose:'button'},
-    perch2:{shape:'chub',ears:'crest',tail:'star',nose:'beak',belly:true},
-    pike2:{shape:'egg',ears:'pointy',tail:'none',nose:'snout',belly:true},
-    trout2:{shape:'wide',ears:'horn',tail:'curl',nose:'dot',eyeSz:0.95},
-    char:{shape:'tall',ears:'antenna',tail:'spike',nose:'none'},
-    grayling:{shape:'round',ears:'none',tail:'swirl',nose:'tiny',eyeSz:0.8},
-    smelt:{shape:'std',ears:'tuft',tail:'fluffy',nose:'shiny',belly:true},
-    vimba:{shape:'chub',ears:'bunny',tail:'fin',nose:'heart',belly:true},
-    schneider:{shape:'egg',ears:'crest',tail:'leaf',nose:'button'},
-    spirlin:{shape:'wide',ears:'pointy',tail:'plume',nose:'beak',eyeSz:0.95},
+    minnow:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.95},
+    stickleback:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    sunfish:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true,eyeSz:0.8},
+    dace:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    chub2:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    ruffe:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    gudgeon:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.95},
+    vendace:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    burbot:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true,eyeSz:0.8},
+    tinca:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    rudd:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    bleak:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    loach:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true,eyeSz:0.95},
+    barbel:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    nase:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.8},
+    ide:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    asp:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    zander:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    wels:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true,eyeSz:0.95},
+    sterlet:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    bream:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.8},
+    carp2:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    perch2:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    pike2:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    trout2:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.95},
+    char:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    grayling:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.8},
+    smelt:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    vimba:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
+    schneider:{shape:'fish',ears:'none',tail:'none',nose:'none'},
+    spirlin:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.95},
     tupdo:{shape:'tall',ears:'horn',tail:'thin',nose:'snout'},
     nidple:{shape:'round',ears:'antenna',tail:'puff',nose:'dot',belly:true,eyeSz:0.8},
     fobbby:{shape:'std',ears:'none',tail:'star',nose:'none',belly:true},
@@ -534,22 +542,22 @@
     oryxkin:{shape:'std',ears:'long',tail:'thin',nose:'snout',feat:'horns'},
     stagling:{shape:'std',ears:'long',tail:'puff',nose:'dot',feat:'antlers',eyeSz:0.9},
     cherubin:{shape:'egg',ears:'none',tail:'none',nose:'button',feat:'halo',belly:true},
-    glimmertide:{shape:'std',ears:'fin',tail:'fin',nose:'shiny',eyeSz:0.95},
+    glimmertide:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.95},
     lanternjaw:{shape:'chub',ears:'antenna',tail:'thin',nose:'shiny',belly:true,eyeSz:0.95},
     wispjelly:{shape:'round',ears:'none',tail:'plume',nose:'tiny',eyeSz:0.8,feat:'fae'},
-    coilfin:{shape:'tall',ears:'none',tail:'swirl',nose:'dot'},
+    coilfin:{shape:'fish',ears:'none',tail:'none',nose:'none'},
     mantaray:{shape:'wide',ears:'fin',tail:'thin',nose:'dot',feat:'wings'},
     inkpuff:{shape:'round',ears:'none',tail:'swirl',nose:'button',belly:true,eyeSz:0.95},
-    bubblegill:{shape:'egg',ears:'fin',tail:'puff',nose:'button',belly:true,eyeSz:0.95},
+    bubblegill:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true,eyeSz:0.95},
     deepglow:{shape:'std',ears:'antenna',tail:'star',nose:'shiny',eyeSz:0.95},
     frillmane:{shape:'std',ears:'fan',tail:'fin',nose:'snout',feat:'mane'},
     pebblepuff:{shape:'chub',ears:'none',tail:'puff',nose:'dot',belly:true},
     seadrift:{shape:'wide',ears:'fin',tail:'fin',nose:'tiny'},
     glowcurl:{shape:'tall',ears:'none',tail:'curl',nose:'dot',eyeSz:0.8},
-    spinefin:{shape:'std',ears:'crest',tail:'spike',nose:'snout',feat:'backspike'},
+    spinefin:{shape:'fish',ears:'none',tail:'none',nose:'none'},
     corallow:{shape:'round',ears:'crest',tail:'leaf',nose:'button',belly:true},
     tideling:{shape:'egg',ears:'fin',tail:'swirl',nose:'tiny',belly:true,eyeSz:0.95},
-    finwhisker:{shape:'std',ears:'long',tail:'thin',nose:'dot'},
+    finwhisker:{shape:'fish',ears:'none',tail:'none',nose:'none'},
     pearlbelly:{shape:'round',ears:'none',tail:'fin',nose:'heart',belly:true,eyeSz:0.8},
     squidlet:{shape:'tall',ears:'none',tail:'plume',nose:'tiny',eyeSz:0.95},
     sparkjelly:{shape:'round',ears:'none',tail:'star',nose:'shiny',eyeSz:0.8,feat:'fae'},
@@ -557,9 +565,9 @@
     abyssmaw:{shape:'chub',ears:'horn',tail:'spike',nose:'shiny',eyeSz:0.95,feat:'horns'},
     driftpetal:{shape:'egg',ears:'none',tail:'plume',nose:'button',belly:true,eyeSz:0.8},
     snailshell:{shape:'round',ears:'curl',tail:'swirl',nose:'tiny',belly:true},
-    halofin:{shape:'std',ears:'fin',tail:'fin',nose:'dot',eyeSz:0.8,feat:'halo'},
+    halofin:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.8},
     mottlewide:{shape:'wide',ears:'dish',tail:'none',nose:'snout',belly:true},
-    glintray:{shape:'wide',ears:'fin',tail:'star',nose:'shiny'},
+    glintray:{shape:'fish',ears:'none',tail:'none',nose:'none'},
     griffling:{shape:'std',ears:'tuft',tail:'plume',nose:'beak',feat:'wings'},
     emberwyrm:{shape:'tall',ears:'horn',tail:'spike',nose:'snout'},
     krakelet:{shape:'round',ears:'fin',tail:'swirl',nose:'tiny',belly:true,eyeSz:0.95},
@@ -636,7 +644,7 @@
     puffino:{shape:'chub',ears:'none',tail:'puff',nose:'beak',belly:true,eyeSz:0.95},
     larkle:{shape:'round',ears:'tuft',tail:'thin',nose:'dot',belly:true},
     hummel:{shape:'round',ears:'none',tail:'star',nose:'tiny',belly:true,eyeSz:0.8,feat:'fae'},
-    kingfish:{shape:'std',ears:'crest',tail:'fin',nose:'beak',belly:true},
+    kingfish:{shape:'fish',ears:'none',tail:'none',nose:'none',belly:true},
     dovel:{shape:'egg',ears:'none',tail:'leaf',nose:'button',belly:true,feat:'halo'},
     baldeo:{shape:'wide',ears:'none',tail:'spike',nose:'beak',feat:'wings'},
     weaverp:{shape:'round',ears:'none',tail:'leaf',nose:'dot',belly:true},
@@ -749,7 +757,7 @@
     quackling:{shape:'round',ears:'none',tail:'fin',nose:'beak',belly:true,eyeSz:0.95},
     dandelamb:{shape:'round',ears:'floppy',tail:'fluffy',nose:'heart',belly:true},
     trotters:{shape:'chub',ears:'pointy',tail:'curl',nose:'snout',belly:true},
-    hayfin:{shape:'std',ears:'long',tail:'thin',nose:'snout'},
+    hayfin:{shape:'fish',ears:'none',tail:'none',nose:'none'},
     gosling:{shape:'tall',ears:'none',tail:'plume',nose:'beak',feat:'wings'},
     mossbleat:{shape:'std',ears:'horn',tail:'leaf',nose:'snout',feat:'horns'},
     wendfer:{shape:'round',ears:'floppy',tail:'swirl',nose:'button',belly:true},
@@ -793,7 +801,7 @@
     jaggle:{shape:'wide',ears:'pointy',tail:'spike',nose:'snout',feat:'mane'},
     puddlepip:{shape:'round',ears:'none',tail:'leaf',nose:'button',belly:true,eyeSz:0.95},
     barksloth:{shape:'egg',ears:'floppy',tail:'thin',nose:'snout',belly:true,eyeSz:0.8},
-    scaletot:{shape:'wide',ears:'fin',tail:'fin',nose:'tiny',feat:'backspike'},
+    scaletot:{shape:'fish',ears:'none',tail:'none',nose:'none'},
     chirrup:{shape:'round',ears:'fan',tail:'puff',nose:'beak',belly:true,eyeSz:0.95},
     mangotail:{shape:'std',ears:'round',tail:'curl',nose:'button',belly:true},
     dewfrog:{shape:'chub',ears:'none',tail:'none',nose:'heart',belly:true,eyeSz:0.95},
@@ -827,7 +835,7 @@
     wendlekit:{shape:'round',ears:'round',tail:'curl',nose:'shiny',belly:true},
     tummo:{shape:'wide',ears:'horn',tail:'spike',nose:'snout',feat:'horns'},
     wunkin:{shape:'chub',ears:'tuft',tail:'leaf',nose:'heart',belly:true},
-    rimefin:{shape:'std',ears:'fin',tail:'fin',nose:'tiny',eyeSz:0.8},
+    rimefin:{shape:'fish',ears:'none',tail:'none',nose:'none',eyeSz:0.8},
     tibwick:{shape:'round',ears:'crest',tail:'star',nose:'shiny',belly:true,feat:'halo'},
     drizzlet:{shape:'egg',ears:'dish',tail:'thin',nose:'dot',belly:true,eyeSz:0.95},
   };
