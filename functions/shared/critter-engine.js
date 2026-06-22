@@ -984,6 +984,17 @@
     rarityName:n=>['Common','Uncommon','Rare','Legendary'][n]||'Common',
     // --- deterministic helpers for combining critters ---
     archetypeFor:(seed)=>KEYS[hash(String(seed))%KEYS.length],   // a species from a seed
+    // BREEDING: a fused child usually takes after its parents' species (lineage),
+    // sometimes the other parent's, and ~30% mutates into a discovered species.
+    // Deterministic from the child seed; parentArchs MUST be passed best-first so
+    // the result is order-independent.
+    breedArchetype:(seed,parentArchs)=>{ const ps=(parentArchs||[]).filter(a=>ARCH[a]);
+      if(!ps.length) return KEYS[hash(String(seed))%KEYS.length];
+      const r=rng(seed+'~breed')();
+      if(r<0.45) return ps[0];                                   // the strongest parent's kind
+      if(r<0.70) return ps[Math.floor(rng(seed+'~bp')()*ps.length)]; // either parent's kind
+      return KEYS[hash(String(seed))%KEYS.length];               // mutate → discover a new species
+    },
     combineSeed:(seeds)=>'cmb:'+hash((seeds||[]).slice().sort().join('|')).toString(36), // stable child seed
     isShiny:(seed,arch,rarity)=>traits(seed,(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0,ARCH[arch]?arch:KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)]).shiny, // seed-derived shiny flag
     // tier-scaled shiny roll for fused critters — climbing the ladder makes the

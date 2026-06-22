@@ -90,6 +90,9 @@ ok('child appears in reveals', cr.length===1 && cr[0].id===cres.child.id);
 const m1 = Economy.makeCombo([{seed:'s-a',archetype:'frog',rarity:0},{seed:'s-b',archetype:'duck',rarity:1}]);
 const m2 = Economy.makeCombo([{seed:'s-b',archetype:'duck',rarity:1},{seed:'s-a',archetype:'frog',rarity:0}]);
 ok('combine is deterministic + order-independent', m1.seed===m2.seed && m1.archetype===m2.archetype);
+// breeding: a fused child usually takes after its parents' kind (lineage, not a pure hash)
+{ let same=0; for(let i=0;i<200;i++){ const c=Economy.makeCombo([{seed:'bx'+i,archetype:'fox',rarity:0,tier:0},{seed:'by'+i,archetype:'fox',rarity:0,tier:0}]); if(c.archetype==='fox')same++; }
+  ok('breeding: two foxes usually beget a fox (>55%)', same>110); }
 // 3-fuse jumps rarity further (max+2), capped at 3
 const m3 = Economy.makeCombo([{seed:'1',archetype:'frog',rarity:1},{seed:'2',archetype:'duck',rarity:0},{seed:'3',archetype:'koi',rarity:0}]);
 ok('3-fuse rarity = max+2 (1→3)', m3.rarity === 3);

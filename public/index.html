@@ -1494,6 +1494,17 @@
     rarityName:n=>['Common','Uncommon','Rare','Legendary'][n]||'Common',
     // --- deterministic helpers for combining critters ---
     archetypeFor:(seed)=>KEYS[hash(String(seed))%KEYS.length],   // a species from a seed
+    // BREEDING: a fused child usually takes after its parents' species (lineage),
+    // sometimes the other parent's, and ~30% mutates into a discovered species.
+    // Deterministic from the child seed; parentArchs MUST be passed best-first so
+    // the result is order-independent.
+    breedArchetype:(seed,parentArchs)=>{ const ps=(parentArchs||[]).filter(a=>ARCH[a]);
+      if(!ps.length) return KEYS[hash(String(seed))%KEYS.length];
+      const r=rng(seed+'~breed')();
+      if(r<0.45) return ps[0];                                   // the strongest parent's kind
+      if(r<0.70) return ps[Math.floor(rng(seed+'~bp')()*ps.length)]; // either parent's kind
+      return KEYS[hash(String(seed))%KEYS.length];               // mutate → discover a new species
+    },
     combineSeed:(seeds)=>'cmb:'+hash((seeds||[]).slice().sort().join('|')).toString(36), // stable child seed
     isShiny:(seed,arch,rarity)=>traits(seed,(rarity>=3)?3:(rarity>=2)?2:(rarity>=1)?1:0,ARCH[arch]?arch:KEYS[hash(seed)%Math.min(KEYS.length,FALLBACK_N)]).shiny, // seed-derived shiny flag
     // tier-scaled shiny roll for fused critters — climbing the ladder makes the
@@ -1527,16 +1538,20 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = mod;
   root.Evolution = mod;
 })(typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
-  // The ladder. The FIRST 12 are the original names in their original order —
-  // never reorder them or existing critters' tier LABELS would shift. New rungs
-  // are APPEND-ONLY after index 11, giving a very high ceiling (years of climbing).
+  // The ladder (40 rungs) — a coherent climb: growth → fae → radiance → mythic →
+  // epic → cosmic → transcendent. Names are labels only (the tier INTEGER is what's
+  // stored on a critter and what drives the visual prestige), so this sequence can
+  // be tuned freely without affecting any rendered critter.
   const TIERS = [
-    'Hatchling','Sprout','Bloom','Sprite','Glimmer','Radiant','Prism','Mythic','Ancient','Astral','Celestial','Eternal',
-    'Empyrean','Phoenix','Drake','Primal','Titan','Colossus','Aurora','Stellar','Nebula','Quasar','Pulsar','Seraph',
-    'Empyreal','Divine','Cosmic','Galactic','Vortex','Zenith','Paragon','Sovereign','Immortal','Transcendent','Infinite',
-    'Omega','Genesis','Eclipse','Singularity','Apex'
+    'Hatchling','Sprout','Seedling','Sapling','Bloom','Blossom',
+    'Sprite','Pixie','Wisp','Fae','Glimmer','Gleam',
+    'Shimmer','Sparkle','Radiant','Lumen','Aurora','Prism',
+    'Mystic','Mythic','Fabled','Legend','Phoenix','Drake',
+    'Titan','Colossus','Ancient','Primal','Empyrean','Seraph',
+    'Astral','Stellar','Nebula','Cosmic','Galactic','Celestial',
+    'Eternal','Divine','Transcendent','Apex'
   ];
-  const MAX = TIERS.length - 1;                 // top of the ladder (clamp target) = 40
+  const MAX = TIERS.length - 1;                 // top of the ladder (clamp target) = 39
   function tierName(t){ t = Math.max(0, t|0); return TIERS[t] || ('Tier ' + (t + 1)); }
   // Where a fused child lands: climb +1 (2-fuse) or +2 (3-fuse) above the best parent, capped.
   function childTier(parentTiers, n){
@@ -1669,7 +1684,12 @@
      from the child seed across ALL species, so combining can discover new ones. */
   function makeCombo(parents){
     const seed=CritterEngine.combineSeed(parents.map(p=>p.seed));
-    const archetype=CritterEngine.archetypeFor(seed);
+    // breeding: child usually takes after the parents' kind. Sort best-first by
+    // (tier, rarity, seed) so the result is order-independent.
+    const ranked=parents.slice().sort((a,b)=>((b.tier||0)*4+(b.rarity||0))-((a.tier||0)*4+(a.rarity||0))||String(a.seed).localeCompare(String(b.seed)));
+    const archetype=CritterEngine.breedArchetype
+      ? CritterEngine.breedArchetype(seed, ranked.map(p=>p.archetype))
+      : CritterEngine.archetypeFor(seed);
     const maxR=parents.reduce((m,p)=>Math.max(m,p.rarity||0),0);
     const rarity=Math.min(3, maxR + (parents.length>=3 ? 2 : 1));
     const tier=Evolution ? Evolution.childTier(parents.map(p=>p.tier||0), parents.length) : 0;

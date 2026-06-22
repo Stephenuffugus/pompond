@@ -119,7 +119,12 @@
      from the child seed across ALL species, so combining can discover new ones. */
   function makeCombo(parents){
     const seed=CritterEngine.combineSeed(parents.map(p=>p.seed));
-    const archetype=CritterEngine.archetypeFor(seed);
+    // breeding: child usually takes after the parents' kind. Sort best-first by
+    // (tier, rarity, seed) so the result is order-independent.
+    const ranked=parents.slice().sort((a,b)=>((b.tier||0)*4+(b.rarity||0))-((a.tier||0)*4+(a.rarity||0))||String(a.seed).localeCompare(String(b.seed)));
+    const archetype=CritterEngine.breedArchetype
+      ? CritterEngine.breedArchetype(seed, ranked.map(p=>p.archetype))
+      : CritterEngine.archetypeFor(seed);
     const maxR=parents.reduce((m,p)=>Math.max(m,p.rarity||0),0);
     const rarity=Math.min(3, maxR + (parents.length>=3 ? 2 : 1));
     const tier=Evolution ? Evolution.childTier(parents.map(p=>p.tier||0), parents.length) : 0;
