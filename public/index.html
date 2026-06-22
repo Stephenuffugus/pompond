@@ -439,6 +439,14 @@
   .dexcell .dexstars .dexdim{color:var(--line)}
   .dexcell .dextier{color:var(--accent)}
   .dexcell .dexvar{color:#d56fb0}
+  /* species detail — every individual found */
+  .sdgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-height:60vh;overflow:auto;margin-bottom:12px}
+  .sdcell{position:relative;text-align:center;background:var(--card);border-radius:14px;padding:8px 4px;box-shadow:0 5px 12px -9px rgba(30,80,75,.4);cursor:pointer;transition:transform .12s}
+  .sdcell:active{transform:scale(.95)}
+  .sdcell.fused{opacity:.66;background:var(--bg)}
+  .sdcell .sdart{width:62px;height:62px;margin:0 auto}
+  .sdcell .sdtags{font-size:9.5px;font-weight:800;color:var(--soft);line-height:1.25;margin-top:2px}
+  .sdcell .sdfused{position:absolute;top:5px;right:6px;font-size:9px;font-weight:900;color:#9a6cff;background:#efe7ff;border-radius:8px;padding:1px 5px}
 </style>
 </head>
 <body>
@@ -1682,8 +1690,9 @@
     if(new Set(parentIds).size!==parents.length) return {reject:'Pick different critters.'};
     const spec=makeCombo(parents);
     const child=Object.assign({id:id(),ownerId:kid.id,createdAt:Date.now()},spec);
-    const drop=new Set(parents.map(p=>p.id));
-    fam.critters=fam.critters.filter(c=>!drop.has(c.id));
+    // ARCHIVE parents (mark fused) instead of removing — the kid keeps the full
+    // record of everything they've found; the pond just hides fused ones.
+    parents.forEach(p=>{ p.fused=true; p.fusedAt=Date.now(); p.fusedInto=child.id; });
     fam.critters.push(child); if(reveals)reveals.push(child);
     logEvent(fam,kid,'combine',spec.reason,opts.byUid);
     return {child};
@@ -1822,7 +1831,11 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     save(); render();
   }
   const rewardsTier=t=>fam.rewards.filter(r=>r.tier===t);
-  const crittersOf=mid=>fam.critters.filter(c=>c.ownerId===mid);
+  // OWNED critters (not fused-away) — used by the pond + live counts.
+  const crittersOf=mid=>fam.critters.filter(c=>c.ownerId===mid&&!c.fused);
+  // EVERY critter ever found by this kid, including ones consumed by combining —
+  // so the collection screen can show that nothing was truly lost.
+  const foundOf=mid=>fam.critters.filter(c=>c.ownerId===mid);
   const invOf=mid=>fam.inventory.filter(i=>i.ownerId===mid);
   function fmt(s){s=Math.max(0,Math.round(s));return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
   function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
@@ -2500,10 +2513,30 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     ];
     return B.map(b=>`<span class="dexbadge${b.ok?' on':''}">${b.e}<i>${esc(b.n)}</i></span>`).join('');
   }
+  // Every individual of one species this kid has found — owned AND fused-away — so
+  // nothing they liked feels lost. Tap any to inspect; fused ones are badged.
+  function speciesDetail(kid,arch){
+    const all=foundOf(kid.id).filter(c=>c.archetype===arch)
+      .sort((a,b)=>((b.tier||0)*4+(b.rarity||0))-((a.tier||0)*4+(a.rarity||0)));
+    const cells=all.map(c=>{
+      const sh=(typeof c.shiny==="boolean")?c.shiny:CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
+      const tags=[]; if(c.variant&&c.variant!=="classic")tags.push("🎨"+esc(CritterEngine.variantName(c.variant)));
+      if(sh)tags.push("✨"); if((c.tier||0)>0)tags.push("🌟"+esc(Evolution.tierName(c.tier))); tags.push(CritterEngine.rarityName(c.rarity));
+      return `<div class="sdcell${c.fused?" fused":""}" data-id="${c.id}"><div class="sdart">${renderCritter(c.seed,c.archetype,c.rarity,{tier:c.tier,shiny:c.shiny,variant:c.variant})}</div><div class="sdtags">${tags.join(" · ")}</div>${c.fused?'<span class="sdfused">🧬 fused</span>':""}</div>`;
+    }).join("");
+    const fusedN=all.filter(c=>c.fused).length;
+    openSheet(`<h3>${esc(CritterEngine.name(arch))} <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${all.length} found${fusedN?` · ${fusedN} fused`:""}</span></h3>
+      <p style="font-weight:700;color:var(--soft);font-size:12px;margin:-6px 0 12px">Every ${esc(CritterEngine.name(arch))} you've ever found. The fused ones live on inside the critters they became — nothing's lost! 🧬</p>
+      <div class="sdgrid">${cells}</div>
+      <div class="sa"><button class="cancel">← Collection</button></div>`,s=>{
+      s.querySelector(".cancel").onclick=()=>dexModal(kid);
+      s.querySelectorAll(".sdcell[data-id]").forEach(el=>el.onclick=()=>{ const c=fam.critters.find(x=>x.id===el.dataset.id); if(c)inspectCritter(c); });
+    });
+  }
   function dexModal(kid){
     // The pond live-syncs only recent critters (cost bound); the Dex can page in
     // older ones on demand in cloud mode so the full collection is browsable.
-    let pool=crittersOf(kid.id).slice();
+    let pool=foundOf(kid.id).slice();   // EVERYTHING found (incl. fused-away) — nothing feels lost
     const seen=new Set(pool.map(c=>c.id));
     let cursor=pool.reduce((m,c)=>Math.min(m,c.createdAt||0), Date.now());
     let more=cloudActive() && !!(Backend.cloud && Backend.cloud.loadOlder);
@@ -2538,8 +2571,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
         <div class="sa"><button class="cancel">Close</button></div>`,s=>{
         s.querySelector(".cancel").onclick=closeSheet;
         s.querySelectorAll(".dexcell[data-arch]").forEach(el=>el.onclick=()=>{
-          const owned=pool.filter(c=>c.archetype===el.dataset.arch); if(!owned.length)return;
-          inspectCritter(owned.reduce((a,b)=>(b.rarity||0)>(a.rarity||0)?b:a));
+          if(pool.some(c=>c.archetype===el.dataset.arch)) speciesDetail(kid,el.dataset.arch);
         });
         const lb=s.querySelector("#loadolder");
         if(lb)lb.onclick=()=>{ if(loading)return; loading=true; paint();

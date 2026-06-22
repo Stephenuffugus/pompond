@@ -85,8 +85,8 @@ const fz = await K.call('combineCritters')({ critterIds: myCrit });
 ok('combineCritters returns the fused child as a reveal', Array.isArray(fz.reveals) && fz.reveals.length===1 && fz.reveals[0].tag==='combo');
 ok('fused child climbed to tier 1 (evolution)', fz.reveals[0].tier === 1);
 const afterDocs = (await getDocs(collection(P.db,`families/${fid}/critters`))).docs;
-ok('fusion is a Firestore sink (2 consumed, 1 created → net -1)', afterDocs.length === beforeN-1);
-ok('parents gone + combo child persisted', !afterDocs.find(d=>d.id===myCrit[0]) && !afterDocs.find(d=>d.id===myCrit[1]) && afterDocs.some(d=>d.data().tag==='combo'));
+ok('fusion archives parents + adds child (net +1, nothing deleted)', afterDocs.length === beforeN+1);
+ok('parents kept as fused + combo child persisted', afterDocs.find(d=>d.id===myCrit[0]).data().fused===true && afterDocs.find(d=>d.id===myCrit[1]).data().fused===true && afterDocs.some(d=>d.data().tag==='combo'));
 await throws('combine rejects fewer than 2 critters', K.call('combineCritters')({ critterIds:[myCrit[0]] }));
 await throws('combine rejects critters that are not the kid\'s', K.call('combineCritters')({ critterIds:['nope1','nope2'] }));
 

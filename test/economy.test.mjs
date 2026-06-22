@@ -81,7 +81,7 @@ cf.critters = [
 ];
 const cr = [];
 const cres = Economy.combine(cf, kid(cf), ['a','b'], cr);
-ok('combine consumes parents, mints 1 child (3→2 critters)', cf.critters.length === 3 && !cf.critters.find(c=>c.id==='a') && !cf.critters.find(c=>c.id==='b'));
+ok('combine ARCHIVES parents as fused + mints 1 child (4→5 docs, none deleted)', cf.critters.length === 5 && cf.critters.find(c=>c.id==='a').fused===true && cf.critters.find(c=>c.id==='b').fused===true && cf.critters.some(c=>c.tag==='combo'));
 ok('child is special combo with a "Combined from" reason', cres.child.tag==='combo' && cres.child.special===true && /Combined from/.test(cres.child.reason));
 ok('2-fuse rarity = max+1 (1→2)', cres.child.rarity === 2);
 ok('combine logs a ledger event', cf.log.some(e=>e.type==='combine'));

@@ -567,7 +567,9 @@ exports.combineCritters = onCall(async (req) => {
     const spec = Economy.makeCombo(parents);
     const childId = ref.collection('critters').doc().id;
     const child = Object.assign({ id: childId, ownerId: memberId, createdAt: Date.now() }, spec);
-    for (const p of parents) tx.delete(ref.collection('critters').doc(p.id));
+    // ARCHIVE the parents (don't delete) so a kid never loses a critter they
+    // found/liked — they stay in the collection, marked as fused, hidden from the pond.
+    for (const p of parents) tx.set(ref.collection('critters').doc(p.id), { fused: true, fusedAt: Date.now(), fusedInto: childId }, { merge: true });
     tx.set(ref.collection('critters').doc(childId), child);
     const evId = Economy.id();
     tx.set(ref.collection('ledger').doc(evId),

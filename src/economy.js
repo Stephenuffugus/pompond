@@ -140,8 +140,9 @@
     if(new Set(parentIds).size!==parents.length) return {reject:'Pick different critters.'};
     const spec=makeCombo(parents);
     const child=Object.assign({id:id(),ownerId:kid.id,createdAt:Date.now()},spec);
-    const drop=new Set(parents.map(p=>p.id));
-    fam.critters=fam.critters.filter(c=>!drop.has(c.id));
+    // ARCHIVE parents (mark fused) instead of removing — the kid keeps the full
+    // record of everything they've found; the pond just hides fused ones.
+    parents.forEach(p=>{ p.fused=true; p.fusedAt=Date.now(); p.fusedInto=child.id; });
     fam.critters.push(child); if(reveals)reveals.push(child);
     logEvent(fam,kid,'combine',spec.reason,opts.byUid);
     return {child};
