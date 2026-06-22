@@ -196,8 +196,11 @@
     // discovery hook: first time this kid sees this species (mostly via fusion)
     const firstSeen=c.tag==="combo"&&!fam.critters.some(x=>x.id!==c.id&&x.ownerId===c.ownerId&&x.archetype===c.archetype);
     const banners=(firstSeen?'<div class="rl-new">🔭 NEW SPECIES!</div>':'')+(shiny?'<div class="rl-shiny">✨ SHINY!</div>':'');
-    ov.innerHTML=`<div class="reveal-card">${banners}<div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier,shiny:c.shiny})}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
-    ov.classList.add("show"); confetti(); beep(c.rarity>=2||c.special);
+    // big, ray-backed celebration for the special moments (legendary / shiny / a
+    // high-tier fusion); a gentler one for everyday hatches.
+    const epic=shiny||c.rarity>=3||(c.tag==="combo"&&(c.tier||0)>=8);
+    ov.innerHTML=`<div class="reveal-card${epic?' epic':''}">${epic?'<div class="rl-rays"></div>':''}${banners}<div class="rl-sub">${label}</div><div class="rl-art">${renderCritter(c.seed,c.archetype,c.rarity,{bg:true,tier:c.tier,shiny:c.shiny})}</div><div class="rl-name">${CritterEngine.name(c.archetype)} · ${CritterEngine.rarityName(c.rarity)}</div><div class="rl-tap">tap to continue</div></div>`;
+    ov.classList.add("show"); confetti(epic); beep(c.rarity>=2||c.special);
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
     ov.onclick=close; setTimeout(close,c.rarity>=2?2400:1500);
   }
@@ -402,6 +405,11 @@
   function paintPond(kid){
     const pond=app.querySelector("#pond"); const all=crittersOf(kid.id); const list=all.slice(-28);
     pond.innerHTML="";
+    // time-of-day mood: the pond shifts dawn→day→dusk→night with the real clock,
+    // so it feels like a living place that changes through the day.
+    const hr=new Date().getHours();
+    const tod=hr<7?"night":hr<10?"dawn":hr<17?"day":hr<20?"dusk":"night";
+    pond.className="pond pond-"+tod;
     // Grassy BANK decor (reeds + tufts) — sits behind the water blob, so it's
     // covered when full and frames the pond as you zoom out. Appended first = behind.
     const bank=document.createElement("div"); bank.className="pondbank";
@@ -727,12 +735,18 @@
         const best=owned.reduce((a,b)=>(b.rarity||0)>(a.rarity||0)?b:a);
         art=`<div class="cart">${renderCritter(best.seed,best.archetype,best.rarity,{tier:best.tier,shiny:best.shiny})}</div>`;
         info=`<div class="cname">${name}${t===highest?' <span class="chere">you\'re here</span>':''}</div><div class="csub">${owned.length} critter${owned.length>1?"s":""} here</div>`;
-      } else if(t===highest+1){
-        cls+=" next"; art=`<div class="cart climbico">✨</div>`;
-        info=`<div class="cname">${name}</div><div class="csub">Mix two ${esc(Evolution.tierName(highest))} critters to reach it${canMix?" — you can now! 🎉":""}</div>`;
       } else {
-        cls+=" locked"; art=`<div class="cart climbico">🔒</div>`;
-        info=`<div class="cname">${name}</div><div class="csub">Keep climbing!</div>`;
+        // preview the art you're climbing toward: a sample critter rendered AT this
+        // tier so the escalating prestige (wings→halo→crown→cosmic) is visible.
+        const sampleArch=CritterEngine.list[(t*37+5)%CritterEngine.list.length];
+        const sampleR=t>=20?3:t>=8?2:1, sample=renderCritter("climb:"+t,sampleArch,sampleR,{tier:t});
+        if(t===highest+1){
+          cls+=" next"; art=`<div class="cart">${sample}</div>`;
+          info=`<div class="cname">${name}</div><div class="csub">Mix two ${esc(Evolution.tierName(highest))} critters to reach it${canMix?" — you can now! 🎉":""}</div>`;
+        } else {
+          cls+=" locked"; art=`<div class="cart cartlock">${sample}<span class="lockpip">🔒</span></div>`;
+          info=`<div class="cname">${name}</div><div class="csub">Keep climbing!</div>`;
+        }
       }
       rows+=`<div class="${cls}"><div class="ctier">${t+1}</div>${art}<div class="cinfo">${info}</div></div>`;
     }
@@ -1230,10 +1244,13 @@
   /* ============================================================
      FX
      ============================================================ */
-  function confetti(){const wrap=document.getElementById("burst");const set=["🎉","✨","🐸","🦆","💛","🪷","⭐"];
-    for(let i=0;i<20;i++){const s=document.createElement("span");s.textContent=set[Math.floor(Math.random()*set.length)];
-      s.style.left=Math.random()*100+"vw";s.style.fontSize=(20+Math.random()*22)+"px";s.style.animationDelay=(Math.random()*.4)+"s";
-      wrap.appendChild(s);setTimeout(()=>s.remove(),1900);}}
+  function confetti(big){const wrap=document.getElementById("burst");
+    const set=big?["🎉","✨","⭐","🌟","💫","🏆","💎","🎊","🪩"]:["🎉","✨","🐸","🦆","💛","🪷","⭐"];
+    const n=big?46:20, life=big?2700:1900;
+    for(let i=0;i<n;i++){const s=document.createElement("span");s.textContent=set[Math.floor(Math.random()*set.length)];
+      s.style.left=Math.random()*100+"vw";s.style.fontSize=((big?24:20)+Math.random()*(big?30:22))+"px";s.style.animationDelay=(Math.random()*(big?.8:.4))+"s";
+      if(big)s.style.animationDuration=(1.5+Math.random()*1.1)+"s";
+      wrap.appendChild(s);setTimeout(()=>s.remove(),life);}}
   let actx;function beep(happy){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
     (happy?[523,659,784,1047]:[880,660,880]).forEach((f,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.type="triangle";o.frequency.value=f;
       o.connect(g);g.connect(actx.destination);const t=actx.currentTime+i*.15;g.gain.setValueAtTime(.0001,t);
