@@ -96,6 +96,12 @@ async function applyEconomy(fid, memberId, mutate, opts) {
     // persist deltas
     const { palms, buckets, choices, streak, lastActive } = kid;
     tx.set(memberRef, { palms, buckets, choices, streak, lastActive }, { merge: true });
+    // privacy-safe analytics: FAMILY-LEVEL aggregate counters only (no child names/
+    // ids, no per-event log) — enough to measure retention (createdAt vs lastActiveAt)
+    // and engagement (actions/critters), with zero personal data about any child.
+    tx.set(ref, { lastActiveAt: Date.now(),
+      actions: FieldValue.increment(1),
+      crittersTotal: FieldValue.increment((fam.critters || []).length) }, { merge: true });
     for (const c of fam.critters) tx.set(ref.collection('critters').doc(c.id), c);
     for (const i of fam.inventory) tx.set(ref.collection('inventory').doc(i.id), i);
     for (const e of fam.log) tx.set(ref.collection('ledger').doc(e.id), e);
@@ -143,7 +149,11 @@ exports.createFamily = onCall(async (req) => {
     setup: false,
     settings,
     parentUids: [uid],
-    createdAt: FieldValue.serverTimestamp()
+    // record parental-consent acknowledgment (COPPA) — client passes it from the
+    // onboarding checkbox; default to a server-stamped acknowledgment otherwise.
+    consent: (data.consent && typeof data.consent === 'object') ? data.consent : { at: Date.now(), v: 1 },
+    createdAt: FieldValue.serverTimestamp(),
+    lastActiveAt: Date.now(), actions: 0, crittersTotal: 0
   });
 
   // members
@@ -427,6 +437,43 @@ exports.resetProgress = onCall(async (req) => {
   const b = db.batch();
   for (const k of kids.docs) b.set(k.ref, { palms:0, buckets:{s:0,m:0,b:0}, choices:0, streak:0, lastActive:null }, { merge: true });
   await b.commit();
+  return { ok: true };
+});
+
+// Parent PERMANENTLY deletes the entire family + all its data (COPPA deletion
+// right). Wipes subcollections, code maps, device bindings, the family doc, and
+// revokes/deletes all associated auth users (parents + bound kid devices).
+exports.deleteFamily = onCall(async (req) => {
+  const { uid, fid } = requireParent(req);
+  const ref = famRef(fid);
+  const famSnap = await ref.get();
+  const fam = famSnap.exists ? famSnap.data() : {};
+  // capture codes + child auth ids BEFORE deleting subcollections
+  let joinCode = null, parentCode = null;
+  const authSnap = await ref.collection('private').doc('auth').get();
+  if (authSnap.exists) { const a = authSnap.data(); joinCode = a.joinCode; parentCode = a.parentCode; }
+  const childAuthIds = [];
+  const memSnap = await ref.collection('members').get();
+  memSnap.docs.forEach(d => { const m = d.data(); if (m.childAuthId) childAuthIds.push(m.childAuthId); });
+  const binds = await db.collection('deviceBindings').where('familyId', '==', fid).get();
+
+  // delete every subcollection doc (chunked)
+  for (const col of ['members','chores','rewards','critters','inventory','ledger','pending','done','private']) {
+    const docs = await ref.collection(col).get();
+    let batch = db.batch(), n = 0;
+    for (const d of docs.docs) { batch.delete(d.ref); if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; } }
+    if (n) await batch.commit();
+  }
+  // top-level code maps + device bindings
+  if (joinCode) await db.collection('joinCodes').doc(joinCode).delete().catch(()=>{});
+  if (parentCode) await db.collection('parentCodes').doc(parentCode).delete().catch(()=>{});
+  for (const pc of Object.keys(fam.parentCodes || {})) await db.collection('parentCodes').doc(pc).delete().catch(()=>{});
+  { let batch = db.batch(), n = 0; for (const d of binds.docs) { batch.delete(d.ref); if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; } } if (n) await batch.commit(); }
+  // the family doc itself
+  await ref.delete();
+  // revoke claims + delete auth users (parents + bound kid devices)
+  const uids = new Set([...(fam.parentUids || [uid]), ...childAuthIds, ...binds.docs.map(d => d.id)]);
+  for (const u of uids) { try { await auth.setCustomUserClaims(u, {}); } catch(e){} try { await auth.deleteUser(u); } catch(e){} }
   return { ok: true };
 });
 

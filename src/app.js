@@ -258,6 +258,7 @@
         <div class="field"><label>Your kids</label>
           <div class="rows" id="skids">${kidList||'<div class="hint" style="margin:4px 0">No kids yet — add your first!</div>'}</div>
           <button class="iconbtn go" id="saddkid" style="width:100%;margin-top:10px;justify-content:center">+ Add a kid</button></div>
+        <label class="consent"><input type="checkbox" id="sconsent" ${fam.consent?"checked":""}><span>I'm this child's parent or guardian, and I agree to the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>. (No ads · we never sell your data · you can delete it anytime.)</span></label>
         <button class="btn-big" id="sgo" ${kids().length?"":"disabled"}>Let's go! 🎉</button>
         <div class="hint" style="margin-top:12px">Starter chores &amp; rewards are loaded — you can change everything later in the Parent screen.</div>
       </div>`;
@@ -269,6 +270,8 @@
     app.querySelector("#sgo").onclick=()=>{
       const pin=app.querySelector("#spn").value.replace(/\D/g,"");
       if(pin.length!==4){ toast("Choose a 4-digit Parent PIN 🔒"); const el=app.querySelector("#spn"); if(el)el.focus(); return; }
+      if(!app.querySelector("#sconsent").checked){ toast("Please confirm you're the parent or guardian ✅"); return; }
+      fam.consent={at:Date.now(),v:1};   // verifiable-parental-consent acknowledgment (COPPA)
       fam.name=app.querySelector("#sfn").value.trim()||"Our Family";
       fam.settings.parentPin=pin;
       const p=setupParent(),pn=app.querySelector("#spnm").value.trim(); if(p&&pn)p.name=pn;
@@ -1283,7 +1286,9 @@
         </div>
         <textarea id="bktx" placeholder="Backup code appears here — or paste one to restore" style="width:100%;margin-top:8px;border:2px solid var(--line);border-radius:13px;padding:10px;font-family:var(--body);font-weight:700;font-size:12px;min-height:64px;color:var(--ink);background:#fff;outline:none"></textarea>
       </div>
-      <button id="reset" style="width:100%;border:none;background:#fff;color:#E5524B;box-shadow:inset 0 0 0 2px #f3c6c3;border-radius:13px;padding:12px;font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;margin-bottom:12px">↺ Reset all progress (keep kids & chores)</button>
+      <button id="reset" style="width:100%;border:none;background:#fff;color:#E5524B;box-shadow:inset 0 0 0 2px #f3c6c3;border-radius:13px;padding:12px;font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;margin-bottom:10px">↺ Reset all progress (keep kids & chores)</button>
+      <button id="delfam" style="width:100%;border:none;background:#E5524B;color:#fff;border-radius:13px;padding:12px;font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;margin-bottom:10px">🗑 Delete our family &amp; data</button>
+      <a href="privacy.html" target="_blank" rel="noopener" style="display:block;text-align:center;font-weight:800;color:var(--soft);font-size:13px;margin:0 0 12px;text-decoration:none">🔒 Privacy Policy</a>
       <div class="sa"><button class="cancel">Cancel</button><button class="save">Save</button></div>`,s=>{
       let appr=st.approval;const sw=s.querySelector("#ap");sw.onclick=()=>{appr=!appr;sw.classList.toggle("on",appr);};
       const tx=s.querySelector("#bktx");
@@ -1312,6 +1317,16 @@
         fam.critters=[];fam.inventory=[];fam.pending=[];fam.log=[];fam.done={};
         fam.members.forEach(m=>{if(m.role==="child"){m.palms=0;m.buckets={s:0,m:0,b:0};m.choices=0;m.streak=0;m.lastActive=null;}});
         save();closeSheet();render();toast("Progress reset ↺");
+      };
+      // COPPA deletion right — wipe the whole family. PIN-gated + two-tap confirm.
+      let darmed=false; const db=s.querySelector("#delfam");
+      db.onclick=()=>{
+        if(!darmed){darmed=true;db.textContent="Tap again to permanently delete everything";setTimeout(()=>{if(db){darmed=false;db.textContent="🗑 Delete our family & data";}},2800);return;}
+        askPin(ok=>{ if(!ok)return;
+          if(cloudActive()&&Backend.cloud.deleteFamily){ Backend.cloud.deleteFamily().then(()=>{ closeSheet(); toast("Your family's data was deleted."); }).catch(()=>toast("Couldn't delete — try again")); return; }
+          try{ ["pomPondV1","choreCrewV2","pp_critterpos","pp_critterkeep","pp_routineceleb","pp_seen_welcome"].forEach(k=>localStorage.removeItem(k)); }catch(e){}
+          fam=normalizeFam(defaultFamily()); meId=null; view="lobby"; save(); closeSheet(); render(); toast("Your family's data was deleted.");
+        });
       };
       s.querySelector(".cancel").onclick=closeSheet;
       s.querySelector(".save").onclick=()=>{fam.name=s.querySelector("#fn").value.trim()||"Our Family";

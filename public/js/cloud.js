@@ -83,7 +83,7 @@ async function bootCloud() {
   const fns = {};
   ['createFamily','regenJoinCode','setKidCode','bindDevice','completeChore','givePom',
    'resolveChoice','redeem','approvePending','denyPending','markGiven','resetProgress',
-   'joinFamilyAsParent','regenParentCode','combineCritters']
+   'joinFamilyAsParent','regenParentCode','combineCritters','deleteFamily']
     .forEach(n => fns[n] = call(n));
 
   const gate = document.getElementById('authgate');
@@ -163,6 +163,11 @@ async function bootCloud() {
     deny: (pendingId) => fns.denyPending({ pendingId }),
     markGiven: (itemId) => fns.markGiven({ itemId }),
     resetProgress: () => fns.resetProgress({}),
+    // COPPA deletion: wipe server data, clear local state, reload to a fresh start.
+    deleteFamily: () => fns.deleteFamily({}).then(r => {
+      try { ['pomPondV1','choreCrewV2','pp_seen_welcome','pp_critterpos','pp_critterkeep','pp_routineceleb'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+      setTimeout(() => location.reload(), 500); return r;
+    }),
     // Page in critters older than the live window (for the full collection view).
     // Family-wide + a single-field createdAt index → no composite index needed.
     loadOlder: (beforeCreatedAt, n) => fsMod.getDocs(fsMod.query(
@@ -367,6 +372,7 @@ async function bootCloud() {
       <div id="paneNew">
         <div class="field"><input id="fname" placeholder="Family name" value="${local&&local.name?String(local.name).replace(/"/g,'&quot;'):''}"></div>
         ${canMigrate?`<div class="toggle">Bring my existing pond (${local.members.filter(m=>m.role==='child').length} kid(s), ${(local.critters||[]).length} critters) <div class="sw on" id="mig"><i></i></div></div>`:''}
+        <label style="display:flex;gap:9px;align-items:flex-start;margin:4px 2px 12px;font-size:13px;font-weight:700;color:#5E807B;line-height:1.4;cursor:pointer"><input type="checkbox" id="oconsent" style="margin-top:2px;width:19px;height:19px;flex:0 0 auto"><span>I'm the parent or guardian and agree to the <a href="privacy.html" target="_blank" rel="noopener" style="color:#3FA7A1;font-weight:800">Privacy Policy</a>. No ads · we never sell your data.</span></label>
         <div class="sa"><button class="save" id="create">Create family 🎉</button></div>
       </div>
       <div id="paneJoin" style="display:none">
@@ -384,9 +390,10 @@ async function bootCloud() {
       const sw = g.querySelector('#mig'); if (sw) sw.onclick=()=>{ migrate=!migrate; sw.classList.toggle('on',migrate); };
       g.querySelector('#signout').onclick=()=>authMod.signOut(auth);
       g.querySelector('#create').onclick=async()=>{
+        if (!g.querySelector('#oconsent').checked) { PP.toast('Please confirm you are the parent or guardian ✅'); return; }
         g.querySelector('#create').textContent='Creating…';
         try {
-          const payload = { name: g.querySelector('#fname').value.trim()||'Our Family' };
+          const payload = { name: g.querySelector('#fname').value.trim()||'Our Family', consent: { at: Date.now(), v: 1 } };
           if (migrate && canMigrate) payload.import = PP.normalize(local);
           await fns.createFamily(payload);
           await user.getIdToken(true);

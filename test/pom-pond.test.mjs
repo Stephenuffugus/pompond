@@ -33,9 +33,12 @@ async function run() {
   document.querySelector('#scrim #kn').value = 'Maya';
   click(document.querySelector('#scrim .save')); await wait(30);
   ok('family name kept after add-kid', document.querySelector('#sfn').value === 'Test Family');
+  ok('GO blocked until parent consent', (click(document.querySelector('#sgo')), !(state()&&state().setup)));   // consent unticked → no setup
+  document.querySelector('#sconsent').checked = true;   // parent consents (COPPA)
   click(document.querySelector('#sgo')); await wait(40);
   let s = state();
   ok('setup completes + saves under pomPondV1', s && s.setup === true && s.name === 'Test Family' && s.settings.parentPin === '4321');
+  ok('parental consent recorded', s && s.consent && s.consent.v === 1);
 
   // --- kid loop + daily lock ---
   click(card(/Maya/)); await wait(30);

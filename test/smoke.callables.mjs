@@ -154,5 +154,13 @@ const older = await getDocs(query(collection(P.db, `families/${fid}/critters`), 
 const ids1 = new Set(recent.docs.map(d=>d.id));
 ok('load-older pages strictly older critters with no overlap', older.docs.length > 0 && older.docs.every(d => d.data().createdAt <= cur && !ids1.has(d.id)));
 
+// ---------- privacy-safe analytics + COPPA family deletion ----------
+const famBefore = (await getDoc(doc(P.db, `families/${fid}`))).data();
+ok('family has privacy-safe analytics counters (actions + lastActiveAt)', typeof famBefore.actions === 'number' && famBefore.actions > 0 && typeof famBefore.lastActiveAt === 'number');
+ok('family records parental consent', !!famBefore.consent);
+await P.call('deleteFamily')({});
+ok('deleteFamily removes the family doc', !(await getDoc(doc(P.db, `families/${fid}`))).exists());
+ok('deleteFamily wipes subcollections', (await getDocs(collection(P.db, `families/${fid}/critters`))).size === 0);
+
 console.log(`\n${fail === 0 ? '🎉 ALL PASS' : '⚠️  FAILURES'} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
