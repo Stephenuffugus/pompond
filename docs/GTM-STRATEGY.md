@@ -100,3 +100,27 @@ to **test cheaply and measure**, not settled fact:
 4. **Stand up Pom Pond Plus** (free core + ~$29.99/yr) once there's something worth paying for + retention signal.
 5. **Native wrap for push** once the loop holds.
 6. **Decide the Lucid Winds bundle** positioning — likely the real business model.
+
+---
+
+## DECISION — pricing & free/paid split (2026-06-22, locked by founder)
+
+Informed by the focus group (0/13 unconditional "yes"; resistance was *conditional*, not
+price-driven; the multi-kid paywall was the #1 monetization complaint):
+
+- **Price: $10–15/year** for the optional parent layer (≈ $1/mo). Deliberately low — "we
+  shouldn't overcharge." Annual only (best retention per the benchmarks). **Not** ~$3/mo.
+- **All of a family's kids are FREE.** Never paywall adding a child — that punishes our
+  best-fit user (the multi-kid family). The earning + collecting loop is 100% free for kids.
+- **Routines stay free.** They're core to the value, not a lever.
+- **Plus (paid) = the parent-convenience layer only:** the things that reduce a parent's
+  mental load — automatic weekly recap push, inactivity nudges, reward-debt tracking,
+  richer history/insights, multiple co-parents, export. Plus is a *convenience*, never
+  pay-to-win and never gating a child's experience.
+- **Guarantee (in copy + code):** lapsing a subscription **never hides or deletes a child's
+  pond or critters** — consistent with "nothing is ever lost."
+- **Calm Mode is free** (it's an ethics/well-being feature, not a paywall).
+
+*Billing is intentionally NOT built yet* — it needs a payment provider (Stripe / app-store
+IAP) + the founder's accounts, and should wait until 30-day retention is proven on real
+families. This section is the spec for when that day comes.
