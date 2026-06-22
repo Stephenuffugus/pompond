@@ -85,7 +85,7 @@ async function bootCloud() {
   ['createFamily','regenJoinCode','setKidCode','bindDevice','completeChore','givePom',
    'resolveChoice','redeem','approvePending','denyPending','markGiven','resetProgress',
    'joinFamilyAsParent','regenParentCode','combineCritters','deleteFamily',
-   'registerPush','unregisterPush','sendTestPush']
+   'registerPush','unregisterPush','sendTestPush','joinFamilyAsCheer','regenCheerCode']
     .forEach(n => fns[n] = call(n));
 
   const gate = document.getElementById('authgate');
@@ -154,6 +154,7 @@ async function bootCloud() {
   const cloud = {
     active: false, role: null, member: null, fid: null,
     isParent: () => cloud.role === 'parent',
+    isCheer: () => cloud.role === 'cheer',
     boundMemberId: () => cloud.member,
 
     completeChore: (memberId, choreId) => fns.completeChore({ memberId, choreId }).then(reveal),
@@ -249,6 +250,18 @@ async function bootCloud() {
       const b = s.querySelector('#pregen');
       if (b) b.onclick = () => fns.regenParentCode({}).then(r => { cloud.parentCode = r.parentCode; const i = s.querySelector('#pcode'); if (i) i.value = r.parentCode; PP.toast('New grown-up code ✅'); });
     },
+    // read-only cheerleader (grandparents/relatives) invite code
+    cheerCodeField: () => {
+      if (cloud.role !== 'parent') return '';
+      return `<div class="field"><label>👏 Invite a cheerleader</label>`+
+        `<div class="minrow"><input id="ccode" value="${cloud.cheerCode||'…'}" readonly style="flex:1"><button class="iconbtn" id="cregen" style="height:42px">↻</button></div>`+
+        `<div class="hint" style="margin:6px 0 0;text-align:left">A grandparent or relative opens Pom Pond, taps “Cheer on a family”, and enters this code. They can <b>watch the kids’ progress</b> — but can’t change anything.</div>`+
+        `</div>`;
+    },
+    wireCheerCode: (s) => {
+      const b = s.querySelector('#cregen');
+      if (b) b.onclick = () => fns.regenCheerCode({}).then(r => { cloud.cheerCode = r.cheerCode; const i = s.querySelector('#ccode'); if (i) i.value = r.cheerCode; PP.toast('New cheer code ✅'); });
+    },
     wireJoinCode: (s) => {
       const b = s.querySelector('#jregen');
       if (b) b.onclick = () => fns.regenJoinCode({}).then(r => { cloud.joinCode = r.joinCode; const i = s.querySelector('#jcode'); if (i) i.value = r.joinCode; PP.toast('New join code ✅'); });
@@ -284,6 +297,7 @@ async function bootCloud() {
       cloud.joinCode = a && a.exists() ? (a.data().joinCode||'') : '';
       cloud.kidCodes = a && a.exists() ? (a.data().kidCodes||{}) : {};
       cloud.parentCode = a && a.exists() ? (a.data().parentCode||'') : '';
+      cloud.cheerCode = a && a.exists() ? (a.data().cheerCode||'') : '';
     }
     subscribe(fid, cloud.role, cloud.member);
   });
@@ -398,7 +412,7 @@ async function bootCloud() {
     showGate(`<div class="auth-card">
       <h2>Welcome to Pom Pond ☁️</h2>
       <p>${user.email||'Signed in'} — start your family, or join one a partner already made.</p>
-      <div class="auth-tabs"><button id="tNew" class="on">Start a family</button><button id="tJoin">Join a family</button></div>
+      <div class="auth-tabs"><button id="tNew" class="on">Start</button><button id="tJoin">Join</button><button id="tCheer">👏 Cheer</button></div>
       <div id="paneNew">
         <div class="field"><input id="fname" placeholder="Family name" value="${local&&local.name?String(local.name).replace(/"/g,'&quot;'):''}"></div>
         ${canMigrate?`<div class="toggle">Bring my existing pond (${local.members.filter(m=>m.role==='child').length} kid(s), ${(local.critters||[]).length} critters) <div class="sw on" id="mig"><i></i></div></div>`:''}
@@ -411,11 +425,26 @@ async function bootCloud() {
         <div class="sa"><button class="save" id="joinbtn">Join family 🤝</button></div>
         <div class="hint" id="joinerr" style="margin-top:8px;text-align:left"></div>
       </div>
+      <div id="paneCheer" style="display:none">
+        <div class="field"><input id="ccode" placeholder="Cheer code" autocapitalize="characters"></div>
+        <div class="sa"><button class="save" id="cheerbtn">Cheer on them 👏</button></div>
+        <div class="hint" id="cheererr" style="margin-top:8px;text-align:left">Watch a family's kids grow their ponds — read-only. Ask a parent for their cheer code (Settings).</div>
+      </div>
       <button class="gbtn" id="signout">Sign out</button></div>`, g => {
-      const tN=g.querySelector('#tNew'), tJ=g.querySelector('#tJoin');
-      const show=(join)=>{ tN.classList.toggle('on',!join); tJ.classList.toggle('on',join);
-        g.querySelector('#paneNew').style.display=join?'none':''; g.querySelector('#paneJoin').style.display=join?'':'none'; };
-      tN.onclick=()=>show(false); tJ.onclick=()=>show(true);
+      const tN=g.querySelector('#tNew'), tJ=g.querySelector('#tJoin'), tC=g.querySelector('#tCheer');
+      const show=(p)=>{ tN.classList.toggle('on',p==='new'); tJ.classList.toggle('on',p==='join'); tC.classList.toggle('on',p==='cheer');
+        g.querySelector('#paneNew').style.display=p==='new'?'':'none'; g.querySelector('#paneJoin').style.display=p==='join'?'':'none'; g.querySelector('#paneCheer').style.display=p==='cheer'?'':'none'; };
+      tN.onclick=()=>show('new'); tJ.onclick=()=>show('join'); tC.onclick=()=>show('cheer');
+      g.querySelector('#cheerbtn').onclick=async()=>{
+        const err=g.querySelector('#cheererr');
+        const code=(g.querySelector('#ccode').value||'').toUpperCase().trim();
+        if (code.length < 4) { err.textContent='Enter the cheer code.'; return; }
+        err.textContent='Joining…';
+        try { await fns.joinFamilyAsCheer({ code });
+          await user.getIdToken(true); const t = await user.getIdTokenResult(true);
+          cloud.fid = t.claims.familyId; cloud.role = 'cheer'; subscribe(cloud.fid, 'cheer', null);
+        } catch (e) { err.textContent = authMsg(e); }
+      };
       let migrate = canMigrate;
       const sw = g.querySelector('#mig'); if (sw) sw.onclick=()=>{ migrate=!migrate; sw.classList.toggle('on',migrate); };
       g.querySelector('#signout').onclick=()=>authMod.signOut(auth);

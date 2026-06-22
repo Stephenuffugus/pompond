@@ -28,6 +28,7 @@ const env = await initializeTestEnvironment({
 const parent  = env.authenticatedContext('p_uid',  { familyId: 'fam1', role: 'parent' }).firestore();
 const child   = env.authenticatedContext('k_uid',  { familyId: 'fam1', role: 'child', memberId: 'k1' }).firestore();
 const other   = env.authenticatedContext('o_uid',  { familyId: 'fam2', role: 'parent' }).firestore();
+const cheer   = env.authenticatedContext('c_uid',  { familyId: 'fam1', role: 'cheer' }).firestore();
 const anon    = env.unauthenticatedContext().firestore();
 
 // seed with rules disabled
@@ -60,6 +61,16 @@ await check('child CANNOT change its own buckets', assertFails(updateDoc(doc(chi
 await check('child CANNOT change its own streak', assertFails(updateDoc(doc(child, 'families/fam1/members/k1'), { streak: 100 })));
 await check('child CANNOT mint a critter', assertFails(setDoc(doc(child, 'families/fam1/critters/hax'), { ownerId: 'k1', rarity: 3 })));
 await check('child CANNOT grant itself a reward token', assertFails(setDoc(doc(child, 'families/fam1/inventory/hax'), { ownerId: 'k1', tier: 'big', status: 'ready' })));
+
+// ---- cheerleader (read-only relative) ----
+await check('cheer CAN read the family', assertSucceeds(getDoc(doc(cheer, 'families/fam1'))));
+await check('cheer CAN read members + critters', assertSucceeds(getDoc(doc(cheer, 'families/fam1/members/k1'))));
+await check('cheer CANNOT read the private auth/codes doc', assertFails(getDoc(doc(cheer, 'families/fam1/private/auth'))));
+await check('cheer CANNOT read another family', assertFails(getDoc(doc(cheer, 'families/fam2'))));
+await check('cheer CANNOT edit family settings', assertFails(updateDoc(doc(cheer, 'families/fam1'), { name: 'hax' })));
+await check('cheer CANNOT edit a member', assertFails(updateDoc(doc(cheer, 'families/fam1/members/k1'), { name: 'hax' })));
+await check('cheer CANNOT edit a chore', assertFails(setDoc(doc(cheer, 'families/fam1/chores/c1'), { name: 'hax' })));
+await check('cheer CANNOT mint a critter', assertFails(setDoc(doc(cheer, 'families/fam1/critters/hax'), { ownerId: 'k1', rarity: 3 })));
 await check('child CANNOT flip a token to "given"', assertFails(updateDoc(doc(child, 'families/fam1/inventory/i2'), { status: 'given' })));
 await check('child CANNOT write a done marker (daily-lock is server-enforced)', assertFails(setDoc(doc(child, 'families/fam1/done/k1|c1|2099-01-01'), { ownerId: 'k1' })));
 await check('child CANNOT write a ledger entry', assertFails(setDoc(doc(child, 'families/fam1/ledger/hax'), { ownerId: 'k1', type: 'chore' })));

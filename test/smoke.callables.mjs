@@ -163,6 +163,13 @@ const unreg = await P.call('unregisterPush')({ token: 'tok-smoke-123' });
 ok('unregisterPush succeeds', unreg && unreg.ok === true);
 await throws('client CANNOT read the server-only pushTokens collection', getDoc(doc(P.db, `pushTokens/x`)));
 
+// ---------- cheerleader (read-only) invite code ----------
+const cheerAuth = (await getDoc(doc(P.db, `families/${fid}/private/auth`))).data();
+ok('family seeds a cheer code', !!cheerAuth.cheerCode && cheerAuth.cheerCode.length >= 4);
+const newCheer = await P.call('regenCheerCode')({});
+ok('regenCheerCode returns a fresh code', newCheer && newCheer.cheerCode && newCheer.cheerCode !== cheerAuth.cheerCode);
+ok('a kid already in a family is not re-joined as cheer', (await K.call('joinFamilyAsCheer')({ code: 'WHATEVER' })).existed === true);
+
 // ---------- privacy-safe analytics + COPPA family deletion ----------
 const famBefore = (await getDoc(doc(P.db, `families/${fid}`))).data();
 ok('family has privacy-safe analytics counters (actions + lastActiveAt)', typeof famBefore.actions === 'number' && famBefore.actions > 0 && typeof famBefore.lastActiveAt === 'number');

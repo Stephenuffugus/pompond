@@ -139,7 +139,8 @@ exports.createFamily = onCall(async (req) => {
     (imp && imp.settings) || data.settings || {}
   );
   const joinCode = (data.joinCode || code6()).toUpperCase();
-  const parentCode = code6(); // grown-up invite code (co-parents / grandparents)
+  const parentCode = code6(); // grown-up invite code (co-parents)
+  const cheerCode = code6();  // read-only cheerleader code (relatives)
 
   const batch = db.batch();
   // A newly created family ALWAYS starts setup:false, so the parent is forced
@@ -198,10 +199,11 @@ exports.createFamily = onCall(async (req) => {
   }
 
   // private auth doc (join code + per-kid codes + grown-up code) — parents only.
-  batch.set(ref.collection('private').doc('auth'), { joinCode, kidCodes, parentCode });
+  batch.set(ref.collection('private').doc('auth'), { joinCode, kidCodes, parentCode, cheerCode });
   // top-level code -> family maps (read by Cloud Functions via Admin SDK only).
   batch.set(db.collection('joinCodes').doc(joinCode), { familyId: fid });
   batch.set(db.collection('parentCodes').doc(parentCode), { familyId: fid });
+  batch.set(db.collection('cheerCodes').doc(cheerCode), { familyId: fid });
 
   await batch.commit();
   await auth.setCustomUserClaims(uid, { familyId: fid, role: 'parent' });
@@ -258,6 +260,34 @@ exports.regenParentCode = onCall(async (req) => {
   await authRef.set({ parentCode }, { merge: true });
   await db.collection('parentCodes').doc(parentCode).set({ familyId: fid });
   return { parentCode };
+});
+
+// A relative (grandparent, aunt…) joins as a read-only CHEERLEADER using the
+// family's cheer code. Gets a {familyId, role:'cheer'} claim → read-only access
+// by construction (every write rule requires parent/child/admin). No member doc.
+exports.joinFamilyAsCheer = onCall(async (req) => {
+  const a = requireAuth(req); const uid = a.uid;
+  if (a.token.familyId) return { familyId: a.token.familyId, existed: true };
+  const code = String((req.data && req.data.code) || '').toUpperCase().trim();
+  if (!code) throw new HttpsError('invalid-argument', 'Cheer code required.');
+  const map = await db.collection('cheerCodes').doc(code).get();
+  if (!map.exists) throw new HttpsError('not-found', 'Unknown cheer code.');
+  const fid = map.data().familyId;
+  if (!(await famRef(fid).get()).exists) throw new HttpsError('not-found', 'Family not found.');
+  await famRef(fid).set({ cheerUids: FieldValue.arrayUnion(uid) }, { merge: true });
+  await auth.setCustomUserClaims(uid, { familyId: fid, role: 'cheer' });
+  return { familyId: fid };
+});
+// Parent regenerates the cheerleader invite code.
+exports.regenCheerCode = onCall(async (req) => {
+  const { fid } = requireParent(req);
+  const authRef = famRef(fid).collection('private').doc('auth');
+  const cur = (await authRef.get()).data() || {};
+  if (cur.cheerCode) await db.collection('cheerCodes').doc(cur.cheerCode).delete().catch(()=>{});
+  const cheerCode = code6();
+  await authRef.set({ cheerCode }, { merge: true });
+  await db.collection('cheerCodes').doc(cheerCode).set({ familyId: fid });
+  return { cheerCode };
 });
 
 // Parent sets/updates a kid's 4-digit device code.
@@ -451,9 +481,9 @@ exports.deleteFamily = onCall(async (req) => {
   const famSnap = await ref.get();
   const fam = famSnap.exists ? famSnap.data() : {};
   // capture codes + child auth ids BEFORE deleting subcollections
-  let joinCode = null, parentCode = null;
+  let joinCode = null, parentCode = null, cheerCode = null;
   const authSnap = await ref.collection('private').doc('auth').get();
-  if (authSnap.exists) { const a = authSnap.data(); joinCode = a.joinCode; parentCode = a.parentCode; }
+  if (authSnap.exists) { const a = authSnap.data(); joinCode = a.joinCode; parentCode = a.parentCode; cheerCode = a.cheerCode; }
   const childAuthIds = [];
   const memSnap = await ref.collection('members').get();
   memSnap.docs.forEach(d => { const m = d.data(); if (m.childAuthId) childAuthIds.push(m.childAuthId); });
@@ -470,6 +500,7 @@ exports.deleteFamily = onCall(async (req) => {
   if (joinCode) await db.collection('joinCodes').doc(joinCode).delete().catch(()=>{});
   if (parentCode) await db.collection('parentCodes').doc(parentCode).delete().catch(()=>{});
   for (const pc of Object.keys(fam.parentCodes || {})) await db.collection('parentCodes').doc(pc).delete().catch(()=>{});
+  if (cheerCode) await db.collection('cheerCodes').doc(cheerCode).delete().catch(()=>{});
   { let batch = db.batch(), n = 0; for (const d of binds.docs) { batch.delete(d.ref); if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; } } if (n) await batch.commit(); }
   // push tokens for this family
   const pt = await db.collection('pushTokens').where('fid', '==', fid).get();
@@ -477,7 +508,7 @@ exports.deleteFamily = onCall(async (req) => {
   // the family doc itself
   await ref.delete();
   // revoke claims + delete auth users (parents + bound kid devices)
-  const uids = new Set([...(fam.parentUids || [uid]), ...childAuthIds, ...binds.docs.map(d => d.id)]);
+  const uids = new Set([...(fam.parentUids || [uid]), ...(fam.cheerUids || []), ...childAuthIds, ...binds.docs.map(d => d.id)]);
   for (const u of uids) { try { await auth.setCustomUserClaims(u, {}); } catch(e){} try { await auth.deleteUser(u); } catch(e){} }
   return { ok: true };
 });

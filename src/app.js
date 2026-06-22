@@ -9,6 +9,7 @@
    ============================================================ */
   const PP = (window.PomPond = window.PomPond || {});
   const cloudActive = () => Backend.cloudActive();
+  const isCheer = () => cloudActive() && Backend.cloud.isCheer && Backend.cloud.isCheer();
 
   const ARCHETYPES = CritterEngine.list;
   const renderCritter = (seed,archetype,rarity,opts)=>CritterEngine.render(seed,archetype,rarity,opts);
@@ -294,7 +295,7 @@
         <span>${showInstall()?'<button class="iconbtn go" id="install">📲 Get app</button> ':''}${cloudActive()?'<button class="iconbtn" id="acct">👤</button> ':''}${kids().length?'<button class="iconbtn" id="week">📅 Week</button> <button class="iconbtn" id="wof">🏆 Family</button> ':''}<button class="iconbtn" id="gallery">🎨 Critters</button></span></div>
       <div class="label"><span>Who's here?</span><span class="ln"></span></div>
       <div class="lobby-grid" id="lg"></div>
-      <div class="hint">Parents manage chores & rewards · kids do chores and grow their Pond</div>`;
+      <div class="hint">${isCheer()?"👏 You're cheering on this family (view-only) — tap a kid to see how they're growing their pond!":"Parents manage chores & rewards · kids do chores and grow their Pond"}</div>`;
     app.querySelector("#gallery").onclick=galleryModal;
     const wof=app.querySelector("#wof"); if(wof)wof.onclick=wallOfFame;
     const wk=app.querySelector("#week"); if(wk)wk.onclick=weeklyRecap;
@@ -309,6 +310,9 @@
     });
   }
   function enter(m){
+    // Cheerleaders (read-only relatives) never enter editing views — a kid card
+    // opens that kid's progress; a parent card just explains the role.
+    if(isCheer()){ if(m.role==="child") openCheerKid(m); else toast("You're cheering on the family 👏 — tap a kid to see their progress"); return; }
     // In cloud mode, a kid device bound to one member can only enter as that member.
     if(cloudActive() && Backend.cloud.boundMemberId){
       const bound=Backend.cloud.boundMemberId();
@@ -319,6 +323,18 @@
       if(cloudActive() && Backend.cloud.isParent && !Backend.cloud.isParent()){ toast("Ask a parent to sign in on their device"); return; }
       askPin(ok=>{ if(ok){meId=m.id;view="parent";render();} });
     }else{ meId=m.id; view="kid"; render(); }
+  }
+  // Cheerleader's read-only window into one kid's progress.
+  function openCheerKid(kid){
+    const st=cardStats(kid);
+    openSheet(`<h3>${esc(kid.name)}'s progress 👏</h3>
+      <div style="text-align:center;margin:2px 0 8px"><div style="width:120px;height:120px;margin:0 auto">${st.top?renderCritter(st.top.seed,st.top.archetype,st.top.rarity,{bg:true,tier:st.top.tier,shiny:st.top.shiny,variant:st.top.variant}):'<div style="font-size:60px">'+(kid.emoji||"🧒")+'</div>'}</div></div>
+      <p style="text-align:center;font-weight:800;color:var(--soft);font-size:14px;margin:0 0 12px">${kid.palms||0} ${esc(cnames())} · ${st.species}/${CritterEngine.list.length} kinds${kid.streak?` · 🔥 ${kid.streak}-day streak`:""}</p>
+      <div class="sa" style="flex-wrap:wrap;gap:8px"><button class="cancel">Close</button><button class="save" id="ckdex">📖 Collection</button><button class="save" id="ckbrag">🏅 Brag card</button></div>`,s=>{
+      s.querySelector(".cancel").onclick=closeSheet;
+      s.querySelector("#ckdex").onclick=()=>dexModal(kid);
+      s.querySelector("#ckbrag").onclick=()=>bragCard(kid);
+    });
   }
   function askPin(cb){
     const canReset = cloudActive() && Backend.cloud && Backend.cloud.isParent && Backend.cloud.isParent();
@@ -1312,6 +1328,7 @@
         ${(Backend.cloud.pushSupported&&Backend.cloud.pushSupported())?"":`<div class="hint" style="margin-top:6px">⚠️ A grown-up needs to add a Web-Push key in the Firebase console to switch these on.</div>`}</div>`:""}
       ${cloudActive()&&Backend.cloud.joinCodeField?Backend.cloud.joinCodeField():""}
       ${cloudActive()&&Backend.cloud.grownupCodeField?Backend.cloud.grownupCodeField():""}
+      ${cloudActive()&&Backend.cloud.cheerCodeField?Backend.cloud.cheerCodeField():""}
       <div class="field"><label>Backup &amp; restore${cloudActive()?" <span style='text-transform:none;font-weight:700'>(your family is also synced to the cloud)</span>":""}</label>
         <div style="display:flex;gap:8px">
           <button id="bkup" class="iconbtn" style="flex:1;justify-content:center;height:42px">⬆ Copy backup</button>
@@ -1327,6 +1344,7 @@
       const tx=s.querySelector("#bktx");
       if(cloudActive()&&Backend.cloud.wireJoinCode) Backend.cloud.wireJoinCode(s);
       if(cloudActive()&&Backend.cloud.wireGrownupCode) Backend.cloud.wireGrownupCode(s);
+      if(cloudActive()&&Backend.cloud.wireCheerCode) Backend.cloud.wireCheerCode(s);
       s.querySelector("#bkup").onclick=()=>{
         try{ tx.value=btoa(unescape(encodeURIComponent(JSON.stringify(fam))));
           tx.select(); try{document.execCommand("copy");}catch(e){}
