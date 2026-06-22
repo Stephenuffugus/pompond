@@ -1424,11 +1424,12 @@
     const steps = ios
       ? 'In <b>Safari</b>, tap the <b>Share</b> icon <span style="font-size:16px">⬆️</span> at the bottom, scroll down, and tap <b>“Add to Home Screen.”</b>'
       : android
-      ? 'Tap the <b>⋮ menu</b> (top-right of Chrome) and choose <b>“Install app”</b> (or <b>“Add to Home screen”</b>).'
+      ? 'In <b>Chrome</b>, tap the <b>⋮ menu</b> (top-right) → <b>“Add to Home screen”</b> → <b>Install</b>. <br><br><b>Can’t find it after?</b> Android puts new apps in your <b>app drawer</b> — swipe up from the bottom of your home screen, find <b>Pom Pond</b>, and long-press to drag it onto your home screen.'
       : 'Click the <b>install icon</b> in the address bar, or your browser menu → <b>“Install Pom Pond.”</b>';
     openSheet(`<h3>📲 Add Pom Pond to your phone</h3>
-      <p style="font-weight:700;color:var(--soft);font-size:14px;line-height:1.55;margin-top:-6px">${steps}</p>
-      <p style="font-weight:700;color:var(--soft);font-size:13px">It then opens full-screen like a real app — with its own icon on your home screen.</p>
+      ${android?'<p style="font-weight:700;color:var(--accent);font-size:13px;margin-top:-6px">Tip: the <b>📲 Get app</b> button usually installs it in one tap — try that first!</p>':''}
+      <p style="font-weight:700;color:var(--soft);font-size:14px;line-height:1.55">${steps}</p>
+      <p style="font-weight:700;color:var(--soft);font-size:13px">It then opens full-screen like a real app — with its own icon.</p>
       <div class="sa"><button class="cancel">Got it 👍</button></div>`,s=>{s.querySelector(".cancel").onclick=closeSheet;});
   }
 

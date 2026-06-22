@@ -6,3 +6,7 @@ firestore-debug.log
 ui-debug.log
 *.log
 .DS_Store
+
+# Capacitor generated native projects (regenerate with: npx cap add android/ios)
+/android/
+/ios/

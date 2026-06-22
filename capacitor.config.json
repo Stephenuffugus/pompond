@@ -1,0 +1,15 @@
+{
+  "appId": "com.lucidwinds.pompond",
+  "appName": "Pom Pond",
+  "webDir": "public",
+  "server": {
+    "url": "https://pom-pond.web.app",
+    "cleartext": false
+  },
+  "android": {
+    "backgroundColor": "#E9F4F1"
+  },
+  "ios": {
+    "backgroundColor": "#E9F4F1"
+  }
+}
