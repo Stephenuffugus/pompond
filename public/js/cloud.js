@@ -159,7 +159,7 @@ async function bootCloud() {
 
     completeChore: (memberId, choreId) => fns.completeChore({ memberId, choreId }).then(reveal),
     givePom: (memberId, src, note, n) => fns.givePom({ memberId, src, note, n }),
-    resolveChoice: (memberId, saveUp) => fns.resolveChoice({ saveUp }).then(reveal),
+    resolveChoice: (memberId, saveUp) => fns.resolveChoice({ memberId, saveUp }).then(reveal),
     combine: (memberId, ids) => fns.combineCritters({ memberId, critterIds: ids }).then(reveal),
     redeem: (itemId, rewardId, memberId) => fns.redeem({ itemId, rewardId, memberId }),
     approve: (pendingId) => fns.approvePending({ pendingId }),

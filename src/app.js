@@ -216,7 +216,11 @@
     Economy.earnTimes(fam,kid,{type:src,special:true,note:note,byUid:"local-parent"},revealQ,n); revealQ=[]; save();
   }
   function resolveChoice(kid,saveUp){
-    if(cloudActive()){ Backend.cloud.resolveChoice(kid.id,saveUp).catch(()=>toast("Couldn't reach server")); return; }
+    if(cloudActive()){
+      if((kid.choices||0)>0)kid.choices--;   // optimistic: clear it now so the prompt can't re-pop before the server syncs
+      Backend.cloud.resolveChoice(kid.id,saveUp).catch(()=>toast("Couldn't reach server"));
+      return;
+    }
     Economy.resolveChoice(fam,kid,saveUp,revealQ); save();
     playReveals(kid.id,()=>{ if((kid.choices||0)>0)choiceModal(kid); });
   }
@@ -963,11 +967,15 @@
       const cm=s.querySelector("#climbmix"); if(cm)cm.onclick=()=>{ closeSheet(); combineMode=true; combineSel=[]; render(); };
     });
   }
+  let choiceOpen=false;
   function choiceModal(kid){
+    if(choiceOpen) return;                          // never stack
+    if(!((kid.choices||0)>0)) return;               // nothing pending → don't pop (kills the loop)
+    choiceOpen=true;
     openSheet(`<div class="choice"><h3>Pond full! 💧 Your choice…</h3>
       <button class="opt" data-c="save"><b>Save toward the BIG reward 🏆</b><span>Pour it up. Skip a medium win now for the big prize later.</span></button>
       <button class="opt" data-c="keep"><b>Keep my medium win ✅</b><span>Enjoy it now. The big pond waits.</span></button></div>`,sheet=>{
-      sheet.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{closeSheet();resolveChoice(kid,o.dataset.c==="save");});
+      sheet.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{choiceOpen=false;closeSheet();resolveChoice(kid,o.dataset.c==="save");});
     });
   }
   function redeemFlow(kid,item){
@@ -1195,7 +1203,7 @@
      ============================================================ */
   const scrim=document.getElementById("scrim"), sheet=document.getElementById("sheet");
   function openSheet(html,wire){sheet.innerHTML=html;scrim.classList.add("show");wire&&wire(sheet);}
-  function closeSheet(){scrim.classList.remove("show");}
+  function closeSheet(){scrim.classList.remove("show");choiceOpen=false;}
   scrim.onclick=e=>{if(e.target===scrim)closeSheet();};
 
   /* ============================================================

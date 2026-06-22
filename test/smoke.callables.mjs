@@ -71,9 +71,19 @@ const bind = await K.call('bindDevice')({ joinCode, code:'1234', memberId:null }
 await K.auth.currentUser.getIdToken(true);
 ok('kid device bound to its member by code', bind.memberId === 'k1');
 
-await K.call('resolveChoice')({ saveUp:true });
+// a PARENT in the kid's pond (default shared-phone mode) can resolve on the kid's
+// behalf — otherwise the "Pond full!" prompt loops forever (the live bug fix).
+await P.call('resolveChoice')({ memberId:'k1', saveUp:false });
 k = await kidDoc();
-ok('kid SAVE advanced the big bucket + cleared the choice', k.buckets.b === 1 && (k.choices||0) === 0);
+ok('parent can resolve a choice on a kid\'s behalf + it clears', (k.choices||0) === 0);
+// drive another choice, then the kid resolves with SAVE
+await P.call('givePom')({ memberId:'k1', src:'effort', n:3 });
+await P.call('givePom')({ memberId:'k1', src:'effort', n:3 });
+await P.call('givePom')({ memberId:'k1', src:'effort', n:3 });
+await P.call('givePom')({ memberId:'k1', src:'effort', n:3 });
+k = await kidDoc();
+if ((k.choices||0) > 0) { await K.call('resolveChoice')({ saveUp:true }); k = await kidDoc(); }
+ok('kid SAVE clears the choice (no pending choice left)', (k.choices||0) === 0);
 
 await throws('a kid CANNOT grant itself a reward token', setDoc(doc(K.db,`families/${fid}/inventory/hax`), { ownerId:'k1', tier:'big', status:'ready' }));
 

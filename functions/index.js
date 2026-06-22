@@ -384,12 +384,18 @@ exports.givePom = onCall(async (req) => {
   });
 });
 
-// Kid resolves a queued medium-fill choice.
+// Resolve a queued medium-fill choice. A kid resolves their own; a PARENT in the
+// kid's pond (the default shared-phone mode) may resolve on the kid's behalf —
+// otherwise the choice can never clear and the prompt loops forever.
 exports.resolveChoice = onCall(async (req) => {
-  const { fid, memberId } = requireChild(req);
+  const a = requireAuth(req);
+  const fid = a.token.familyId;
+  if (!fid) throw new HttpsError('permission-denied', 'No family.');
+  const memberId = a.token.role === 'parent' ? (req.data && req.data.memberId) : a.token.memberId;
+  if (!memberId) throw new HttpsError('invalid-argument', 'memberId required.');
   const saveUp = !!(req.data && req.data.saveUp);
   return applyEconomy(fid, memberId, (fam, kid, reveals) => {
-    if (!((kid.choices||0) > 0)) return { reject: 'No pending choice.' };
+    if (!((kid.choices||0) > 0)) return { status: 'resolved' };   // already cleared — no-op, don't loop
     Economy.resolveChoice(fam, kid, saveUp, reveals);
     return { status: 'resolved' };
   });
