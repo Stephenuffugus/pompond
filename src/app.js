@@ -406,18 +406,23 @@
     pond.appendChild(bank);
     // Everything pannable/zoomable lives in the stage; badges + zoom buttons sit outside it.
     const stage=document.createElement("div"); stage.className="pond-stage";
+    // The water blob: clips its own decor (pads/reeds/shimmer) to the blob shape.
+    // Critters are appended to the STAGE (above the water), so they're never clipped
+    // and can be dragged out onto the grassy bank without disappearing.
+    const water=document.createElement("div"); water.className="pond-water";
     // CSS lily pads (disc with the classic V-notch), some with a lotus flower
     [[14,58,58],[66,26,48],[44,74,42],[78,60,54]].forEach(([x,y,w],i)=>{
       const p=document.createElement("div");p.className="pad";
       p.style.left=x+"%";p.style.top=y+"%";p.style.width=w+"px";p.style.height=Math.round(w*0.7)+"px";
-      p.style.animationDelay=(i*0.8)+"s";stage.appendChild(p);
+      p.style.animationDelay=(i*0.8)+"s";water.appendChild(p);
       if(i%2===0){const f=document.createElement("div");f.className="lily";f.textContent="🌸";
-        f.style.left=(x+3)+"%";f.style.top=(y-3)+"%";f.style.fontSize="18px";f.style.animationDelay=(i*0.8)+"s";stage.appendChild(f);}
+        f.style.left=(x+3)+"%";f.style.top=(y-3)+"%";f.style.fontSize="18px";f.style.animationDelay=(i*0.8)+"s";water.appendChild(f);}
     });
     // reeds near the back corners + a few gentle ripples for life
-    [10,84].forEach(x=>{const r=document.createElement("div");r.className="reed";r.textContent="🌾";r.style.left=x+"%";stage.appendChild(r);});
+    [10,84].forEach(x=>{const r=document.createElement("div");r.className="reed";r.textContent="🌾";r.style.left=x+"%";water.appendChild(r);});
     [[34,44],[62,56],[48,70]].forEach(([x,y],i)=>{const rp=document.createElement("div");rp.className="ripple";
-      rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";stage.appendChild(rp);});
+      rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";water.appendChild(rp);});
+    stage.appendChild(water);
     const n=list.length;
     if(!n){const em=document.createElement("div");em.className="empty";
       em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";stage.appendChild(em);}
@@ -461,7 +466,8 @@
         if(!moved && Math.abs(dx)+Math.abs(dy)>5){ moved=true; w.classList.add("dragging"); }
         if(!moved) return;
         let nx=startL+(dx/pondZoom)/pr.width*100, ny=startT+(dy/pondZoom)/pr.height*100;
-        nx=Math.max(2,Math.min(90,nx)); ny=Math.max(6,Math.min(86,ny));
+        // wider bounds than the water blob so critters can rest on the grassy bank
+        nx=Math.max(0,Math.min(94,nx)); ny=Math.max(2,Math.min(93,ny));
         w.style.left=nx+"%"; w.style.top=ny+"%";
       };
       const up=()=>{
@@ -748,7 +754,7 @@
     openSheet(`<div class="choice"><h3>Spend your ${item.tier} reward</h3>${opts}<div class="sa"><button class="cancel">Later</button></div></div>`,sheet=>{
       sheet.querySelector(".cancel").onclick=closeSheet;
       sheet.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
-        if(cloudActive()){ Backend.cloud.redeem(item.id,o.dataset.r,kid.id).catch(()=>toast("Couldn't redeem that — try again")); closeSheet(); confetti(); return; }
+        if(cloudActive()){ closeSheet(); Backend.cloud.redeem(item.id,o.dataset.r,kid.id).then(()=>confetti()).catch(()=>toast("Couldn't redeem that — try again")); return; }
         item.status="redeemed";item.rewardId=o.dataset.r;const rw=fam.rewards.find(r=>r.id===o.dataset.r);Economy.logEvent(fam,kid,"redeem",rw?rw.name:"");save();closeSheet();confetti();render();});
     });
   }
