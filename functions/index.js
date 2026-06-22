@@ -365,9 +365,11 @@ exports.redeem = onCall(async (req) => {
     const it = snap.data();
     if (it.ownerId !== memberId) throw new HttpsError('permission-denied', 'Not your token.');
     if (it.status !== 'ready') throw new HttpsError('failed-precondition', 'Token not redeemable.');
-    tx.set(itemRef, { status: 'redeemed', rewardId: rewardId || null, at: Date.now() }, { merge: true });
+    // ALL reads must precede ALL writes in a Firestore transaction — read the
+    // reward (for the ledger note) BEFORE we set the item, or the tx always throws.
     const rwSnap = rewardId ? await tx.get(ref.collection('rewards').doc(rewardId)) : null;
     const note = rwSnap && rwSnap.exists ? rwSnap.data().name : '';
+    tx.set(itemRef, { status: 'redeemed', rewardId: rewardId || null, at: Date.now() }, { merge: true });
     tx.set(ref.collection('ledger').doc(Economy.id()),
       { id: Economy.id(), ownerId: memberId, type: 'redeem', note, at: Date.now(), byUid: req.auth.uid });
   });

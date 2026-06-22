@@ -93,9 +93,14 @@ await throws('combine rejects critters that are not the kid\'s', K.call('combine
 // ---------- redeem (kid) → deliver (parent) ----------
 const smallReady = inv.find(i => i.tier==='small' && i.status==='ready');
 const smallId = (await getDocs(collection(P.db,`families/${fid}/inventory`))).docs.find(d=>d.data().tier==='small'&&d.data().status==='ready').id;
-await K.call('redeem')({ itemId: smallId, rewardId: null });
+// pass a REAL rewardId — this is what the UI always does, and exercises the
+// in-transaction reward read (reads must precede writes, else the tx throws).
+const smallReward = (await getDocs(collection(P.db,`families/${fid}/rewards`))).docs.find(d=>d.data().tier==='small');
+await K.call('redeem')({ itemId: smallId, rewardId: smallReward ? smallReward.id : null });
 let item = (await getDoc(doc(P.db,`families/${fid}/inventory/${smallId}`))).data();
 ok('kid redeem flips ready → redeemed', item.status === 'redeemed');
+ok('redeem with a real rewardId records the reward name in the ledger',
+   !smallReward || (await getDocs(collection(P.db,`families/${fid}/ledger`))).docs.some(d=>d.data().type==='redeem' && d.data().note===smallReward.data().name));
 await P.call('markGiven')({ itemId: smallId });
 item = (await getDoc(doc(P.db,`families/${fid}/inventory/${smallId}`))).data();
 ok('parent markGiven flips redeemed → given', item.status === 'given');
