@@ -13,6 +13,11 @@
   // CALM MODE — a parent setting that strips the game surface: plain critters
   // (no rarity aura / tier / shiny / morph), with Mix/Climb/Dex-stats hidden.
   const calm = () => !!(fam.settings && fam.settings.calm);
+  // READ-ALOUD (non-readers): speak key labels via the browser's speech synthesis.
+  const readAloud = () => !!(fam.settings && fam.settings.readAloud);
+  function speak(t){ try{ if(!readAloud() || !window.speechSynthesis) return;
+    const u=new SpeechSynthesisUtterance(String(t)); u.rate=0.95; u.pitch=1.12;
+    window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }catch(e){} }
   function critterArt(c, extra){ extra = extra || {};
     if(calm()) return renderCritter(c.seed, c.archetype, 0, extra.bg ? {bg:true} : undefined);
     return renderCritter(c.seed, c.archetype, c.rarity, Object.assign({tier:c.tier, shiny:c.shiny, variant:c.variant}, extra));
@@ -114,6 +119,23 @@
   function celebrateRoutine(kid,r){ const key=kid.id+"|"+r.k+"|"+today(); if(routineCeleb[key])return; routineCeleb[key]=1;
     try{ localStorage.setItem("pp_routineceleb",JSON.stringify(routineCeleb)); }catch(e){}
     setTimeout(()=>{ confetti(); toast(r.e+" "+r.n+" routine complete! 🎉"); },300); }
+  // DAILY AGENCY — a clear daily goal (quest) + a collection target (Critter of
+  // the Day) so a kid has something to AIM at, not just react to.
+  const QUEST_GOAL=2;
+  let questCeleb=(()=>{ try{ return JSON.parse(localStorage.getItem("pp_questceleb")||"{}")||{}; }catch(e){ return {}; } })();
+  function celebrateQuest(kid){ const key=kid.id+"|"+today(); if(questCeleb[key])return; questCeleb[key]=1;
+    try{ localStorage.setItem("pp_questceleb",JSON.stringify(questCeleb)); }catch(e){}
+    setTimeout(()=>{ confetti(); toast("🎯 Daily quest done! 🎉"); speak("Daily quest done!"); },350); }
+  function choresDoneToday(kid){ return Object.keys(fam.done||{}).filter(k=>{const p=k.split("|");return p[0]===kid.id&&p[2]===today();}).length; }
+  function dailyBanner(kid){
+    const doneN=choresDoneToday(kid), q=Math.min(doneN,QUEST_GOAL), qdone=doneN>=QUEST_GOAL;
+    if(qdone) celebrateQuest(kid);
+    const quest=`<div class="dquest${qdone?" done":""}"><span class="dq-emo">🎯</span><span class="dq-txt">${qdone?"Daily quest done!":"Daily quest: do "+QUEST_GOAL+" chores"}</span><span class="dq-prog">${qdone?"🎉":q+"/"+QUEST_GOAL}</span></div>`;
+    if(calm()) return quest;   // calm mode: the chore goal only, no collection target
+    const fa=featuredArch(), has=foundOf(kid.id).some(c=>c.archetype===fa);
+    const cotd=`<button class="dcotd" id="cotdbtn"><div class="dcotd-art">${has?"":'<div class="dcotd-q">?</div>'}${renderCritter("cotd:"+fa,fa,2)}</div><div class="dcotd-i"><div class="dcotd-tag">⭐ Today's critter to find</div><div class="dcotd-nm">${has?"Found it! 🎉":"Do chores & mix to discover it"}</div></div></button>`;
+    return quest+cotd;
+  }
   // chores assigned to a grown-up — visibility/accountability only (no economy).
   const adultChores=()=>fam.chores.filter(c=>{const m=member(c.assignedTo);return !!(m&&m.role==="parent");});
   const choreDoneToday=c=>c.doneDate===today();
@@ -232,7 +254,7 @@
     // calm mode: a plain, gentle "new critter" — no rarity/shiny/morph hype.
     const cLabel=calm()?"🥚 New critter!":label, cBanners=calm()?"":banners, cName=calm()?CritterEngine.name(c.archetype):(CritterEngine.name(c.archetype)+" · "+CritterEngine.rarityName(c.rarity));
     ov.innerHTML=`<div class="reveal-card${epic?' epic':''}">${epic?'<div class="rl-rays"></div>':''}${cBanners}<div class="rl-sub">${cLabel}</div><div class="rl-art">${critterArt(c,{bg:true})}</div><div class="rl-name">${cName}</div><div class="rl-tap">tap to continue</div></div>`;
-    ov.classList.add("show"); confetti(epic); beep(c.rarity>=2||c.special);
+    ov.classList.add("show"); confetti(epic); beep(c.rarity>=2||c.special); speak(calm()?"New critter!":(cLabel.replace(/[^\w !]/g,"")+" "+CritterEngine.name(c.archetype)));
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
     ov.onclick=close; setTimeout(close,c.rarity>=2?2400:1500);
   }
@@ -411,12 +433,14 @@
       <div class="label"><span>My Pond</span><span class="ln"></span>${(!combineMode&&!calm()&&crittersOf(kid.id).length>=2)?`<button class="combinebtn" id="combineBtn">✨ Mix!</button>`:""}</div>
       ${combineMode?`<div class="combinebar"><div class="cbtop"><span id="combinemsg">Tap 2–3 critters to mix ✨</span><span class="cbtns"><button id="combineCancel">Cancel</button><button id="combineGo" disabled>Mix</button></span></div><div class="cbprev" id="combineprev"></div></div>`:""}
       <div class="pond" id="pond"></div>
+      <div id="dailyrow">${dailyBanner(kid)}</div>
       <div class="label"><span>Do a chore</span><span class="ln"></span></div>
       <div class="chore-list" id="cl"></div>
       ${adultChores().length?`<div class="label"><span>Grown-ups are doing chores too 💪</span><span class="ln"></span></div><div class="rows" id="adultcl"></div>`:""}
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Drag critters to move them, tap to see what they're for!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";combineMode=false;combineSel=[];render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
+    const cotd=app.querySelector("#cotdbtn"); if(cotd)cotd.onclick=()=>{ const fa=featuredArch(); const nm=CritterEngine.name(fa); toast("⭐ "+nm+" — do chores & mix critters to discover it!"); speak(nm+". Do chores and mix critters to find it!"); };
     const clb=app.querySelector("#climb"); if(clb)clb.onclick=()=>climbModal(kid);
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
     const kib=app.querySelector("#install"); if(kib)kib.onclick=doInstall;
@@ -446,7 +470,7 @@
         cl.appendChild(h); }
       inR.forEach(c=>{const done=isDoneToday(kid,c);
         const d=document.createElement("button");d.className="chore"+(done?" done":"");
-        d.innerHTML=`${done?'<span class="check">✓</span>':""}<span class="emo">${c.emoji}</span><span class="cn">${esc(c.name)}</span><span class="meta">${done?"Done today!":"⏱ "+fmt(c.secs)+" · "+pomIcon(13)+" "+c.palm}</span>`;
+        d.innerHTML=`${done?'<span class="check">✓</span>':""}${readAloud()?'<span class="hear" aria-hidden="true">🔊</span>':""}<span class="emo">${c.emoji}</span><span class="cn">${esc(c.name)}</span><span class="meta">${done?"Done today!":"⏱ "+fmt(c.secs)+" · "+pomIcon(13)+" "+c.palm}</span>`;
         d.onclick=()=>{ if(done){toast("Already done today ✅");return;} openTimer(kid,c); };
         cl.appendChild(d);});
       if(all) celebrateRoutine(kid,r);   // fires once/day when a whole routine is finished
@@ -965,6 +989,7 @@
   const RING=2*Math.PI*92;
   function openTimer(kid,chore){
     stopT();   // clear any stale interval from a previous timer before opening a new one
+    speak(chore.name+", worth "+(chore.palm||1)+" "+(((chore.palm||1)===1)?cname():cnames()));
     timer.kidId=kid.id;timer.choreId=chore.id;timer.total=timer.remaining=chore.secs;timer.running=false;
     timerCard.innerHTML=`
       <h3>${chore.emoji} ${esc(chore.name)}</h3>
@@ -1331,6 +1356,7 @@
         <span style="font-weight:800;color:var(--soft);width:40px">Big</span><input id="cb" inputmode="numeric" value="${st.bigCap}" style="width:56px;text-align:center"></div></div>
       <div class="toggle">Require parent approval <div class="sw ${st.approval?"on":""}" id="ap"><i></i></div></div>
       <div class="toggle">🌿 Calm mode <span style="font-weight:700;font-size:12px;color:var(--soft)">(just chores → one cute critter; hides the collecting game)</span> <div class="sw ${st.calm?"on":""}" id="cm2"><i></i></div></div>
+      <div class="toggle">🔊 Read aloud <span style="font-weight:700;font-size:12px;color:var(--soft)">(speaks chores & critters for non-readers)</span> <div class="sw ${st.readAloud?"on":""}" id="ra"><i></i></div></div>
       <div class="field"><label>What are points called? <span style="text-transform:none;font-weight:700">(Pom, Gem, Star…)</span></label><input id="cy" maxlength="12" value="${esc(cname())}"></div>
       <div class="field"><label>Parent PIN</label><input id="pn" inputmode="numeric" maxlength="4" value="${esc(st.parentPin)}"></div>
       ${cloudActive()?`<div class="field"><label>🔔 Daily reminders</label>
@@ -1356,6 +1382,7 @@
       <div class="sa"><button class="cancel">Cancel</button><button class="save">Save</button></div>`,s=>{
       let appr=st.approval;const sw=s.querySelector("#ap");sw.onclick=()=>{appr=!appr;sw.classList.toggle("on",appr);};
       let calmOn=!!st.calm;const sw2=s.querySelector("#cm2");if(sw2)sw2.onclick=()=>{calmOn=!calmOn;sw2.classList.toggle("on",calmOn);};
+      let raOn=!!st.readAloud;const sw3=s.querySelector("#ra");if(sw3)sw3.onclick=()=>{raOn=!raOn;sw3.classList.toggle("on",raOn);};
       const tx=s.querySelector("#bktx");
       if(cloudActive()&&Backend.cloud.wireJoinCode) Backend.cloud.wireJoinCode(s);
       if(cloudActive()&&Backend.cloud.wireGrownupCode) Backend.cloud.wireGrownupCode(s);
@@ -1409,7 +1436,7 @@
         st.smallCap=Math.max(1,parseInt(s.querySelector("#cs").value,10)||4);
         st.medCap=Math.max(1,parseInt(s.querySelector("#cm").value,10)||3);
         st.bigCap=Math.max(1,parseInt(s.querySelector("#cb").value,10)||2);
-        st.approval=appr;st.calm=calmOn;st.parentPin=(s.querySelector("#pn").value||"0000").slice(0,4);
+        st.approval=appr;st.calm=calmOn;st.readAloud=raOn;st.parentPin=(s.querySelector("#pn").value||"0000").slice(0,4);
         st.currencyName=(s.querySelector("#cy").value.trim()||"Pom").slice(0,12);
         save();closeSheet();render();};
     });
