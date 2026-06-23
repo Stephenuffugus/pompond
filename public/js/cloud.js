@@ -85,7 +85,7 @@ async function bootCloud() {
   ['createFamily','regenJoinCode','setKidCode','bindDevice','completeChore','givePom',
    'resolveChoice','redeem','approvePending','denyPending','markGiven','resetProgress',
    'joinFamilyAsParent','regenParentCode','combineCritters','deleteFamily',
-   'registerPush','unregisterPush','sendTestPush','joinFamilyAsCheer','regenCheerCode']
+   'registerPush','unregisterPush','sendTestPush','joinFamilyAsCheer','regenCheerCode','sendFeedback']
     .forEach(n => fns[n] = call(n));
 
   const gate = document.getElementById('authgate');
@@ -198,6 +198,7 @@ async function bootCloud() {
       return true;
     },
     sendTestPush: () => fns.sendTestPush({}),
+    sendFeedback: (text) => fns.sendFeedback({ text }),
 
     // Page in critters older than the live window (for the full collection view).
     // Family-wide + a single-field createdAt index → no composite index needed.

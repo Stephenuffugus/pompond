@@ -483,6 +483,19 @@ exports.resetProgress = onCall(async (req) => {
 // Parent PERMANENTLY deletes the entire family + all its data (COPPA deletion
 // right). Wipes subcollections, code maps, device bindings, the family doc, and
 // revokes/deletes all associated auth users (parents + bound kid devices).
+// Tester feedback → a top-level `feedback` collection (read it in the console).
+// No PII required; just the note + which family/role + the parent email if any.
+exports.sendFeedback = onCall(async (req) => {
+  const a = requireAuth(req);
+  const text = String((req.data && req.data.text) || '').slice(0, 2000).trim();
+  if (!text) throw new HttpsError('invalid-argument', 'Empty feedback.');
+  await db.collection('feedback').add({
+    text, fid: a.token.familyId || null, role: a.token.role || null,
+    email: a.token.email || null, at: Date.now()
+  });
+  return { ok: true };
+});
+
 exports.deleteFamily = onCall(async (req) => {
   const { uid, fid } = requireParent(req);
   const ref = famRef(fid);

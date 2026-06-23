@@ -178,6 +178,10 @@ const unreg = await P.call('unregisterPush')({ token: 'tok-smoke-123' });
 ok('unregisterPush succeeds', unreg && unreg.ok === true);
 await throws('client CANNOT read the server-only pushTokens collection', getDoc(doc(P.db, `pushTokens/x`)));
 
+// ---------- tester feedback ----------
+ok('sendFeedback accepts a note', (await P.call('sendFeedback')({ text:'love the mix button!' })).ok === true);
+await throws('sendFeedback rejects an empty note', P.call('sendFeedback')({ text:'' }));
+
 // ---------- cheerleader (read-only) invite code ----------
 const cheerAuth = (await getDoc(doc(P.db, `families/${fid}/private/auth`))).data();
 ok('family seeds a cheer code', !!cheerAuth.cheerCode && cheerAuth.cheerCode.length >= 4);

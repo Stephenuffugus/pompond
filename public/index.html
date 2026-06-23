@@ -3138,6 +3138,21 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       setTimeout(()=>{const el=s.querySelector("#rn");if(el)el.focus();},60);
     });
   }
+  // 💬 Tester feedback → a `feedback` collection (cloud) or local storage (offline).
+  function feedbackModal(){
+    openSheet(`<h3>💬 Send feedback</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin-top:-6px">What do you love, what's confusing, what's broken? It goes straight to the makers. 🐸</p>
+      <textarea id="fbtext" placeholder="Type your thoughts…" maxlength="2000" style="width:100%;min-height:120px;border:2px solid var(--line);border-radius:13px;padding:11px;font-family:var(--body);font-weight:600;font-size:14px;color:var(--ink);outline:none"></textarea>
+      <div class="sa"><button class="cancel">Cancel</button><button class="save" id="fbsend">Send 💛</button></div>`,s=>{
+      s.querySelector(".cancel").onclick=closeSheet;
+      const b=s.querySelector("#fbsend");
+      b.onclick=()=>{ const t=(s.querySelector("#fbtext").value||"").trim(); if(!t){toast("Type something first 🙂");return;} b.disabled=true;
+        if(cloudActive()&&Backend.cloud.sendFeedback){ Backend.cloud.sendFeedback(t).then(()=>{closeSheet();toast("Thanks! Sent 💛");}).catch(()=>{b.disabled=false;toast("Couldn't send — try again");}); }
+        else { try{ const a=JSON.parse(localStorage.getItem("pp_feedback")||"[]"); a.push({t,at:Date.now()}); localStorage.setItem("pp_feedback",JSON.stringify(a)); }catch(e){} closeSheet(); toast("Thanks! Saved 💛"); }
+      };
+      setTimeout(()=>{const el=s.querySelector("#fbtext");if(el)el.focus();},60);
+    });
+  }
   function settingsSheet(){
     const st=fam.settings;
     openSheet(`<h3>Family settings</h3>
@@ -3170,6 +3185,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       </div>
       <button id="reset" style="width:100%;border:none;background:#fff;color:#E5524B;box-shadow:inset 0 0 0 2px #f3c6c3;border-radius:13px;padding:12px;font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;margin-bottom:10px">↺ Reset all progress (keep kids & chores)</button>
       <button id="delfam" style="width:100%;border:none;background:#E5524B;color:#fff;border-radius:13px;padding:12px;font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;margin-bottom:10px">🗑 Delete our family &amp; data</button>
+      <button id="feedback" style="width:100%;border:none;background:#eafaf8;color:var(--accent);border-radius:13px;padding:12px;font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;margin-bottom:10px">💬 Send feedback</button>
       <a href="privacy.html" target="_blank" rel="noopener" style="display:block;text-align:center;font-weight:800;color:var(--soft);font-size:13px;margin:0 0 12px;text-decoration:none">🔒 Privacy Policy</a>
       <div class="sa"><button class="cancel">Cancel</button><button class="save">Save</button></div>`,s=>{
       let appr=st.approval;const sw=s.querySelector("#ap");sw.onclick=()=>{appr=!appr;sw.classList.toggle("on",appr);};
@@ -3213,6 +3229,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
           fam=normalizeFam(defaultFamily()); meId=null; view="lobby"; save(); closeSheet(); render(); toast("Your family's data was deleted.");
         });
       };
+      const fb=s.querySelector("#feedback"); if(fb)fb.onclick=()=>feedbackModal();
       // 🔔 daily reminders (web push)
       const rem=s.querySelector("#rem");
       if(rem)rem.onclick=async()=>{
