@@ -204,6 +204,37 @@
     if(r.status==='pending'){ render(); toast("Sent to a parent for approval ✅"); return; }
     playReveals(kid.id);
   }
+  // PARENT QUICK-AWARD: tap + on a chore in the parent screen to grant the matching
+  // kid the chore's Pom value instantly — same as the kid doing it on the timer, but
+  // it bypasses approval (the parent IS the authority). The reveal belongs to the
+  // kid's device, so it shows next time the kid logs in.
+  function parentAwardChore(kid,chore){
+    if(isDoneToday(kid,chore)){ toast(kid.name+' already did “'+chore.name+'” today ✅'); return; }
+    toast('+'+(chore.palm||1)+' '+cname()+' for '+kid.name+'! 🎉'); beep(true);
+    if(cloudActive()){ Backend.cloud.completeChore(kid.id,chore.id).catch(()=>toast("Couldn't reach server — try again")); return; }
+    Economy.completeChore(fam,kid,chore,revealQ,{forceEarn:true,byUid:'local-parent'});
+    revealQ=[]; save(); render();
+  }
+  // resolve which kid an award goes to: an assigned kid is awarded directly; an
+  // "anyone" chore with several kids asks who did it.
+  function awardChore(chore){
+    const assigned=chore.assignedTo?member(chore.assignedTo):null;
+    if(assigned&&assigned.role==="child"){ parentAwardChore(assigned,chore); return; }
+    const ks=kids();
+    if(!ks.length){ toast("Add a kid first"); return; }
+    if(ks.length===1){ parentAwardChore(ks[0],chore); return; }
+    openSheet(`<h3>${pomIcon(18)} +${chore.palm||1} for “${esc(chore.name)}”</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-8px 0 10px">Who did it?</p>
+      <div class="rows" id="pk"></div>
+      <div class="sa"><button class="cancel">Cancel</button></div>`,s=>{
+      const pk=s.querySelector("#pk");
+      ks.forEach(k=>{const b=document.createElement("button");b.className="row";b.style.setProperty("--kc",k.color);b.style.cursor="pointer";
+        b.innerHTML=`<span class="emo">${k.emoji}</span><div class="grow"><div class="rn">${esc(k.name)}</div></div><span class="mini" style="pointer-events:none">+${chore.palm||1} ${pomIcon(12)}</span>`;
+        b.onclick=()=>{ closeSheet(); parentAwardChore(k,chore); };
+        pk.appendChild(b);});
+      s.querySelector(".cancel").onclick=closeSheet;
+    });
+  }
   function approve(p){
     if(cloudActive()){ Backend.cloud.approve(p.id).catch(()=>toast("Couldn't reach server")); return; }
     const kid=member(p.ownerId); if(kid){ const ch=fam.chores.find(c=>c.id===p.choreId); Economy.earnTimes(fam,kid,{type:"chore",note:ch?ch.name:""},revealQ, ch?ch.palm:1); }
@@ -1103,13 +1134,14 @@
         : `⏱ ${fmt(c.secs)} · ${pomIcon(13)} ${c.palm} ${who?"· "+esc(who.name):"· anyone"}${rtTag}${sched}`;
       const doneBtn = adult
         ? `<button class="mini donebtn" style="${choreDoneToday(c)?"background:#5BB98C":"background:#fff;color:var(--soft);box-shadow:inset 0 0 0 2px var(--line)"}">${choreDoneToday(c)?"✓ Done":"Mark done"}</button>`
-        : "";
+        : `<button class="mini award" title="Give this kid the Poms now">+${c.palm} ${pomIcon(13)}</button>`;
       row.innerHTML=`<span class="emo">${c.emoji}</span><div class="grow" style="cursor:pointer"><div class="rn">${esc(c.name)}</div><div class="rs">${meta}</div></div>
         ${doneBtn}<button class="mini ghost">Edit</button><button class="mini del" style="background:#E5524B">✕</button>`;
       row.querySelector(".grow").onclick=()=>choreSheet(c);
       row.querySelector(".ghost").onclick=()=>choreSheet(c);
       row.querySelector(".del").onclick=()=>{fam.chores=fam.chores.filter(x=>x.id!==c.id);save();render();};
       const db=row.querySelector(".donebtn"); if(db) db.onclick=()=>toggleAdultChore(c);
+      const ab=row.querySelector(".award"); if(ab) ab.onclick=()=>awardChore(c);
       cr.appendChild(row);});
 
     const rr=app.querySelector("#rewardRows");
