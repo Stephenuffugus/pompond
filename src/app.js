@@ -1186,7 +1186,7 @@
     const deliver=fam.inventory.filter(i=>i.status==="redeemed");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>Parent</h1></div>
-        <span><button class="iconbtn" id="settings">⚙︎</button> <button class="iconbtn" id="leave">⤺</button></span></div>
+        <span><button class="iconbtn" id="help">💡</button> <button class="iconbtn" id="settings">⚙︎</button> <button class="iconbtn" id="leave">⤺</button></span></div>
       ${fam.pending.length?`<div class="label"><span>Approve ✅</span><span class="ln"></span></div><div class="rows" id="pend"></div>`:""}
       ${deliver.length?`<div class="label"><span>Rewards to deliver 🎁</span><span class="ln"></span></div><div class="rows" id="deliver"></div>`:""}
       <div class="label"><span>Kids</span><span class="ln"></span><button class="iconbtn go" id="addKid" style="height:32px;padding:0 12px;font-size:13px">+ Kid</button></div>
@@ -1201,6 +1201,7 @@
       <div class="hint">Award ${esc(cnames())} for kindness, approve chores, and set the rewards kids unlock.</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";render();};
     app.querySelector("#settings").onclick=settingsSheet;
+    app.querySelector("#help").onclick=helpModal;
     app.querySelector("#addKid").onclick=()=>kidSheet(null);
     app.querySelector("#addGrown").onclick=()=>grownupSheet(null);
     app.querySelector("#addChore").onclick=()=>choreSheet(null);
@@ -1518,6 +1519,117 @@
         else { try{ const a=JSON.parse(localStorage.getItem("pp_feedback")||"[]"); a.push({t,at:Date.now()}); localStorage.setItem("pp_feedback",JSON.stringify(a)); }catch(e){} closeSheet(); toast("Thanks! Saved 💛"); }
       };
       setTimeout(()=>{const el=s.querySelector("#fbtext");if(el)el.focus();},60);
+    });
+  }
+  /* ============================================================
+     PARENT TIPS & HELP HUB (notes 6, 7, 8) — tips, the PBIS science, and
+     one-tap chore/reward templates. Parent-only (opened from the 💡 button).
+     ============================================================ */
+  function helpModal(){
+    openSheet(`<h3>💡 Tips &amp; Help</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:13px;margin:-8px 0 12px">Get the most out of Pom Pond.</p>
+      <button class="helpopt" id="h-tips"><span class="ho-e">🌟</span><span class="ho-t"><b>Tips &amp; Tricks</b><span>Simple ways to make rewards really work</span></span></button>
+      <button class="helpopt" id="h-pbis"><span class="ho-e">🎓</span><span class="ho-t"><b>The science: PBIS</b><span>Why this approach works — with research</span></span></button>
+      <button class="helpopt" id="h-tmpl"><span class="ho-e">📋</span><span class="ho-t"><b>Quick-add chores &amp; rewards</b><span>Starter packs you can add in one tap</span></span></button>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{
+      s.querySelector("#h-tips").onclick=tipsModal;
+      s.querySelector("#h-pbis").onclick=pbisModal;
+      s.querySelector("#h-tmpl").onclick=templatesModal;
+      s.querySelector(".cancel").onclick=closeSheet;
+    });
+  }
+  function tipsModal(){
+    const tip=(e,t,d)=>`<div class="recipe"><span class="rcp-e">${e}</span><div><div class="rcp-t">${t}</div><div class="rcp-d">${d}</div></div></div>`;
+    openSheet(`<h3>🌟 Tips &amp; Tricks</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:12px;margin:-6px 0 10px">A few habits that make ${esc(cnames())} really change behavior.</p>
+      ${tip("⏱️","Reward right away",`The sooner a ${esc(cname())} is given after the good behavior, the stronger it sticks. Use the <b>+ ${esc(cname())}</b> button on a chore to award on the spot.`)}
+      ${tip("🎯","Be specific","Tap exactly <i>what</i> they did well (the give-a-Pom reasons). “Thanks for sharing without being asked” beats a vague “good job”.")}
+      ${tip("🔍","Catch them being good","Reward small positive moments — kindness, effort, calm — not just finished chores. That's where the biggest change happens.")}
+      ${tip("➕",`Never take ${esc(cnames())} away`,"Pom Pond only ever <b>adds</b> — by design. Taking rewards away as punishment kills motivation, so the app simply doesn't.")}
+      ${tip("🔁","Consistency beats intensity","A little, every day, works far better than a big reward once in a while. Routines (morning/bedtime) help build the habit.")}
+      ${tip("🎚️","Keep rewards reachable","Mix easy wins (Small pond) with bigger goals (Big pond) so there's always something close <i>and</i> something to dream about.")}
+      ${tip("✨","Let them Mix","Combining critters is the fun part — it teaches patience and choices. Encourage it (it also keeps the pond tidy).")}
+      ${tip("👨‍👩‍👧","Add every grown-up","Add co-parents/carers as grown-ups so anyone can reward in the moment.")}
+      <div class="sa"><button class="cancel">← Back</button></div>`,s=>{ s.querySelector(".cancel").onclick=helpModal; });
+  }
+  function pbisModal(){
+    openSheet(`<h3>🎓 The science: PBIS</h3>
+      <div class="recipe"><span class="rcp-e">🌱</span><div><div class="rcp-t">What it is</div><div class="rcp-d"><b>PBIS</b> — Positive Behavioral Interventions &amp; Supports — is an evidence-based framework used in <b>20,000+ U.S. schools</b>. Instead of punishing problems, it <b>teaches and rewards positive behavior</b>.</div></div></div>
+      <div class="recipe"><span class="rcp-e">📈</span><div><div class="rcp-t">Why it works</div><div class="rcp-d">Rigorous research — including randomized controlled trials — links school-wide PBIS to <b>fewer behavior problems and suspensions</b> and a better climate. A 5-year trial across 37 schools found significant drops in suspensions and discipline referrals.</div></div></div>
+      <div class="recipe"><span class="rcp-e">🐸</span><div><div class="rcp-t">How Pom Pond uses it</div><div class="rcp-d">Immediate, <b>positive</b> reinforcement (${esc(cnames())} + critters) for chores and kindness · <b>specific</b> praise (the reasons you tap) · <b>no punishment</b>, nothing taken away · <b>no leaderboard</b>, so siblings are never ranked against each other.</div></div></div>
+      <div class="recipe"><span class="rcp-e">🏠</span><div><div class="rcp-t">Make it work at home</div><div class="rcp-d">Be <b>immediate</b>, <b>specific</b>, and <b>consistent</b>; reward effort and kindness, not just results; and keep it positive — the same principles the schools use.</div></div></div>
+      <div class="pbislinks"><div class="pbh">Learn more &amp; read the research</div>
+        <a href="https://www.pbis.org" target="_blank" rel="noopener">🔗 Center on PBIS — official hub (pbis.org)</a>
+        <a href="https://www.pbis.org/pbis/studies" target="_blank" rel="noopener">🔗 PBIS research database</a>
+        <a href="https://journals.sagepub.com/doi/abs/10.1177/1098300709334798" target="_blank" rel="noopener">🔗 Bradshaw, Mitchell &amp; Leaf (2010) — school-wide PBIS outcomes (RCT)</a>
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3483890/" target="_blank" rel="noopener">🔗 Effects of school-wide PBIS on behavior problems (open access)</a></div>
+      <p style="font-size:11px;color:var(--soft);font-weight:600;margin-top:10px">Pom Pond is a home tool inspired by these principles; it isn't affiliated with the Center on PBIS or these researchers.</p>
+      <div class="sa"><button class="cancel">← Back</button></div>`,s=>{ s.querySelector(".cancel").onclick=helpModal; });
+  }
+  const CHORE_PACKS=[
+    { key:'classic', name:'Everyday chores', emoji:'🏡', items:[
+      {name:'Make the bed',emoji:'🛏️',palm:1,secs:300},
+      {name:'Tidy room',emoji:'🧸',palm:2,secs:600},
+      {name:'Clear the table',emoji:'🍽️',palm:1,secs:300},
+      {name:'Feed the pet',emoji:'🐕',palm:1,secs:180},
+      {name:'Homework',emoji:'📚',palm:2,secs:1200},
+      {name:'Put away laundry',emoji:'🧺',palm:2,secs:600},
+      {name:'Take out the trash',emoji:'🗑️',palm:1,secs:300},
+      {name:'Water the plants',emoji:'🪴',palm:1,secs:180},
+      {name:'Wipe the counters',emoji:'🧽',palm:1,secs:300},
+      {name:'Sweep the floor',emoji:'🧹',palm:1,secs:300} ]},
+    { key:'morning', name:'Morning routine', emoji:'🌅', items:[
+      {name:'Wake up on time',emoji:'⏰',palm:1,secs:60,routine:'morning'},
+      {name:'Get dressed',emoji:'👕',palm:1,secs:300,routine:'morning'},
+      {name:'Brush teeth',emoji:'🪥',palm:1,secs:120,routine:'morning'},
+      {name:'Eat breakfast',emoji:'🥣',palm:1,secs:600,routine:'morning'},
+      {name:'Pack school bag',emoji:'🎒',palm:1,secs:300,routine:'morning'} ]},
+    { key:'bedtime', name:'Bedtime routine', emoji:'🌙', items:[
+      {name:'Tidy up toys',emoji:'🧸',palm:1,secs:300,routine:'bedtime'},
+      {name:'Bath or shower',emoji:'🛁',palm:1,secs:600,routine:'bedtime'},
+      {name:'Brush teeth',emoji:'🪥',palm:1,secs:120,routine:'bedtime'},
+      {name:'Read a book',emoji:'📖',palm:1,secs:600,routine:'bedtime'},
+      {name:'Lights out on time',emoji:'💤',palm:1,secs:60,routine:'bedtime'} ]},
+    { key:'kindness', name:'Kindness & character', emoji:'💛', items:[
+      {name:'Help a sibling',emoji:'🤝',palm:2,secs:120},
+      {name:'Use kind words',emoji:'💬',palm:1,secs:60},
+      {name:'Share without being asked',emoji:'🎁',palm:2,secs:60},
+      {name:'Say sorry & make up',emoji:'🫂',palm:2,secs:120},
+      {name:'Help without being asked',emoji:'✨',palm:2,secs:120} ]}
+  ];
+  const REWARD_IDEAS=[
+    {name:'30 min screen time',emoji:'📺',tier:'small'},{name:'Pick the music',emoji:'🎵',tier:'small'},
+    {name:'Choose dessert',emoji:'🍨',tier:'small'},{name:'Stay up 15 min late',emoji:'🌙',tier:'small'},
+    {name:'Family movie pick',emoji:'🎬',tier:'medium'},{name:'Pick dinner',emoji:'🍕',tier:'medium'},
+    {name:'Friend playdate',emoji:'🧑‍🤝‍🧑',tier:'medium'},{name:'Trip to the park',emoji:'🛝',tier:'medium'},
+    {name:'Day out (zoo/cinema)',emoji:'🎡',tier:'big'},{name:'New book or small toy',emoji:'🎁',tier:'big'},
+    {name:'Have a sleepover',emoji:'🛌',tier:'big'}
+  ];
+  function addChorePack(pack){
+    const exist=new Set(fam.chores.map(c=>(c.name||"").toLowerCase()));
+    let n=0; pack.items.forEach(it=>{ if(exist.has(it.name.toLowerCase()))return; fam.chores.push(Object.assign({id:id(),secs:300,palm:1},it)); n++; });
+    save(); toast(n?`Added ${n} chore${n>1?"s":""} ✅`:"Already added"); if(n)beep(true); templatesModal();
+  }
+  function addRewardIdeas(){
+    const exist=new Set(fam.rewards.map(r=>(r.name||"").toLowerCase()));
+    let n=0; REWARD_IDEAS.forEach(it=>{ if(exist.has(it.name.toLowerCase()))return; fam.rewards.push(Object.assign({id:id()},it)); n++; });
+    save(); toast(n?`Added ${n} reward idea${n>1?"s":""} ✅`:"Already added"); if(n)beep(true); templatesModal();
+  }
+  function templatesModal(){
+    const have=new Set(fam.chores.map(c=>(c.name||"").toLowerCase()));
+    const packs=CHORE_PACKS.map(p=>{ const missing=p.items.filter(it=>!have.has(it.name.toLowerCase())).length;
+      return `<div class="tmpl"><div class="tmpl-h"><span class="tmpl-e">${p.emoji}</span><div class="grow"><div class="tmpl-n">${esc(p.name)}</div><div class="tmpl-s">${p.items.length} chores${missing?"":" · ✓ added"}</div></div><button class="mini" data-pack="${p.key}"${missing?"":" disabled"}>${missing?"+ Add":"Added"}</button></div></div>`; }).join("");
+    const rewardsMissing=REWARD_IDEAS.filter(it=>!new Set(fam.rewards.map(r=>(r.name||"").toLowerCase())).has(it.name.toLowerCase())).length;
+    openSheet(`<h3>📋 Quick-add starter packs</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:12px;margin:-6px 0 10px">Tap to add a whole set at once — edit or delete any of them afterwards.</p>
+      <div class="tmpllabel">Chore packs</div>
+      ${packs}
+      <div class="tmpllabel" style="margin-top:12px">Reward ideas</div>
+      <div class="tmpl"><div class="tmpl-h"><span class="tmpl-e">🎁</span><div class="grow"><div class="tmpl-n">Fun rewards (all tiers)</div><div class="tmpl-s">${REWARD_IDEAS.length} ideas${rewardsMissing?"":" · ✓ added"}</div></div><button class="mini" id="addrewards"${rewardsMissing?"":" disabled"}>${rewardsMissing?"+ Add":"Added"}</button></div></div>
+      <div class="sa"><button class="cancel">← Back</button></div>`,s=>{
+      s.querySelectorAll("[data-pack]").forEach(b=>b.onclick=()=>{ const p=CHORE_PACKS.find(x=>x.key===b.dataset.pack); if(p)addChorePack(p); });
+      const ar=s.querySelector("#addrewards"); if(ar)ar.onclick=addRewardIdeas;
+      s.querySelector(".cancel").onclick=helpModal;
     });
   }
   function settingsSheet(){
