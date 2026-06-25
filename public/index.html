@@ -2395,11 +2395,10 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
   function paintPond(kid){
     const pond=app.querySelector("#pond"); const all=crittersOf(kid.id); const list=all.slice(-28);
     pond.innerHTML="";
-    // time-of-day mood: the pond shifts dawn→day→dusk→night with the real clock,
-    // so it feels like a living place that changes through the day.
-    const hr=new Date().getHours();
-    const tod=hr<7?"night":hr<10?"dawn":hr<17?"day":hr<20?"dusk":"night";
-    pond.className="pond pond-"+tod;
+    // Pond is ALWAYS DAY (note 3) — the night/dusk moods made it look dark; kids
+    // play at all hours and want a bright, sunny pond. (The dawn/dusk/night CSS is
+    // kept in shell.html, just not applied, so it's easy to bring back as an option.)
+    pond.className="pond pond-day";
     // Grassy BANK decor (reeds + tufts) — sits behind the water blob, so it's
     // covered when full and frames the pond as you zoom out. Appended first = behind.
     const bank=document.createElement("div"); bank.className="pondbank";
