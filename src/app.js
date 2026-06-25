@@ -998,6 +998,30 @@
       <div class="decgrid">${cells}</div>
       <div class="sa"><button class="cancel">Close</button></div>`,s=>{ s.querySelector(".cancel").onclick=closeSheet; });
   }
+  // Discoveries recipe book (note 5): a kid-friendly guide to HOW you get rarer
+  // critters, climb tiers, and find shiny/morphs/new species — plus their own
+  // discovery progress. Pure guide (no state changes).
+  function recipesModal(kid){
+    const pool=foundOf(kid.id);
+    const isShinyC=c=>(typeof c.shiny==="boolean")?c.shiny:CritterEngine.isShiny(c.seed,c.archetype,c.rarity);
+    const total=CritterEngine.list.length;
+    const found=CritterEngine.list.filter(k=>pool.some(c=>c.archetype===k)).length;
+    const shiny=pool.filter(isShinyC).length;
+    const morphs=new Set(pool.map(c=>c.variant||"classic").filter(v=>v!=="classic")).size;
+    const topTier=pool.reduce((m,c)=>Math.max(m,c.tier||0),0);
+    const recipe=(e,t,d)=>`<div class="recipe"><span class="rcp-e">${e}</span><div><div class="rcp-t">${t}</div><div class="rcp-d">${d}</div></div></div>`;
+    openSheet(`<h3>📜 Critter Recipes</h3>
+      <p style="font-weight:700;color:var(--soft);font-size:12px;margin:-6px 0 10px">How to grow rarer, fancier critters — and discover all ${total} species!</p>
+      <div class="dexstats" style="margin-bottom:12px">🐾 ${found}/${total} found · ✨ ${shiny} shiny · 🎨 ${morphs}/9 morphs · 🌟 top ${topTier>0?esc(Evolution.tierName(topTier)):"—"}</div>
+      ${recipe("🥚","Hatch a critter","Do a chore or get a Pom — a brand-new critter joins your pond every time!")}
+      ${recipe("💧🌊🪷","Fill your ponds","Every Pom fills your Small pond. Fill it for a rarer critter — then it feeds your Medium and Big ponds. Bigger pond filled = rarer critter (Common → Uncommon → Rare → Legendary)!")}
+      ${recipe("✨","Mix critters","Tap <b>Mix!</b> and combine 2–3 critters into ONE new one. The mix is usually rarer and climbs a tier — and nothing is lost, your old critters live on inside it. 🧬")}
+      ${recipe("🌟","Climb the tiers","Keep mixing your best critters to climb the tier ladder. Each rung looks grander — glow, gems, wings, halo, crown… all the way to cosmic!")}
+      ${recipe("✨","Find a Shiny","Mix <b>high-tier</b> critters for a chance at a sparkly Shiny. The higher the tier you mix, the better your odds!")}
+      ${recipe("🎨","Collect color morphs","Mixing can create rare color morphs — Golden, Azure, Rose, Shadow and more. There are 9 to collect!")}
+      ${recipe("🔭","Discover new species","Mixing can hatch a species you've never seen before. Keep experimenting — there are ${total} to find!")}
+      <div class="sa"><button class="cancel">← Back</button></div>`,s=>{ s.querySelector(".cancel").onclick=()=>dexModal(kid); });
+  }
   function dexModal(kid){
     // The pond live-syncs only recent critters (cost bound); the Dex can page in
     // older ones on demand in cloud mode so the full collection is browsable.
@@ -1026,6 +1050,7 @@
         return `<div class="dexcell" data-arch="${k}"><div class="dexart">${critterArt(best)}</div><div class="dexnm">${CritterEngine.name(k)} ×${owned.length}</div>${badge}</div>`;
       }).join("");
       openSheet(`<h3>${esc(kid.name)}'s ${calm()?"Critters":"Collection"} <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${found}/${total}</span></h3>
+        <button class="gbtn" id="recipesbtn" style="margin:-2px 0 10px">📜 How to grow rarer critters</button>
         <div class="pbar" style="margin:-4px 0 8px"><i style="width:${Math.round(found/total*100)}%"></i></div>
         ${calm()?"":`<div class="dexstats">🐾 ${found}/${total} species · ✨ ${shinyCount} shiny · 🎨 ${morphs.size}/9 morphs · 🌟 top ${topTier>0?esc(Evolution.tierName(topTier)):"—"}</div>
         <div class="dexbadges">${badgeStrip(found,shinyCount,morphs.size,topTier,combos)}</div>
@@ -1035,6 +1060,7 @@
         ${more?`<button class="gbtn" id="loadolder" style="margin-top:12px"${loading?" disabled":""}>${loading?"Loading…":"📜 Load older critters"}</button>`:""}
         <div class="sa"><button class="cancel">Close</button></div>`,s=>{
         s.querySelector(".cancel").onclick=closeSheet;
+        const rb=s.querySelector("#recipesbtn"); if(rb)rb.onclick=()=>recipesModal(kid);
         s.querySelectorAll(".dexcell[data-arch]").forEach(el=>el.onclick=()=>{
           if(pool.some(c=>c.archetype===el.dataset.arch)) speciesDetail(kid,el.dataset.arch);
         });
