@@ -89,7 +89,7 @@
     if(kid.buckets.s>=cap){
       kid.buckets.s-=cap;
       grant(fam,kid,"small");
-      addCritter(fam,kid.id,1,false,null,reveals,"Bonus for filling the Small pond 💧");   // fused tier-1 critter
+      addCritter(fam,kid.id,1,false,null,reveals,"Bonus for filling the Small pond 💧").fill="small";   // fused tier-1 critter (fill tag → big celebration on reveal)
       kid.buckets.m++;
       checkMedium(fam,kid,reveals);
     }
@@ -99,7 +99,7 @@
     if(kid.buckets.m>=cap){
       kid.buckets.m-=cap;
       grant(fam,kid,"medium");
-      addCritter(fam,kid.id,2,false,null,reveals,"Reward for filling the Medium pond 🌊");
+      addCritter(fam,kid.id,2,false,null,reveals,"Reward for filling the Medium pond 🌊").fill="medium";
       kid.choices=(kid.choices||0)+1;                // HYBRID: queue save-vs-keep
     }
   }
@@ -112,7 +112,7 @@
     if(kid.buckets.b>=cap){
       kid.buckets.b-=cap;
       grant(fam,kid,"big");
-      addCritter(fam,kid.id,3,false,null,reveals,"Showpiece for filling the Big pond 🪷");   // showpiece
+      addCritter(fam,kid.id,3,false,null,reveals,"Showpiece for filling the Big pond 🪷").fill="big";   // showpiece
     }
   }
 

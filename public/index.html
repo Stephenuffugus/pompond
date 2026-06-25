@@ -382,6 +382,8 @@
   .reveal-card .rl-new{background:linear-gradient(90deg,#5be3c0,#3fa7ff);color:#06303a;box-shadow:0 3px 12px rgba(63,167,255,.5)}
   .reveal-card .rl-morph{background:linear-gradient(90deg,#ffd36e,#ff9ad1);color:#5a2a00;box-shadow:0 3px 12px rgba(255,160,120,.5)}
   .reveal-card .rl-shiny{background:linear-gradient(90deg,#ff8ad8,#ffe98a,#9affc8);color:#5a3a00;box-shadow:0 3px 12px rgba(255,160,210,.5)}
+  .reveal-card .rl-fill{display:block;font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:.4px;color:#fff;margin:0 auto 10px;padding:9px 20px;border-radius:999px;background:linear-gradient(135deg,#ffd46b,#f6a72e);box-shadow:0 6px 20px -4px rgba(246,167,46,.8);text-shadow:0 2px 6px rgba(150,90,0,.35);animation:fillpop .55s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes fillpop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
   .reveal-card .rl-art{width:190px;height:190px;margin:0 auto;animation:revpop .5s cubic-bezier(.2,1.4,.4,1)}
   @keyframes revpop{0%{transform:scale(.2) rotate(-20deg);opacity:0}60%{opacity:1}100%{transform:scale(1) rotate(0)}}
   .reveal-card .rl-name{font-weight:800;font-size:17px;margin-top:6px;text-shadow:0 2px 8px rgba(0,0,0,.4)}
@@ -1733,7 +1735,7 @@
     if(kid.buckets.s>=cap){
       kid.buckets.s-=cap;
       grant(fam,kid,"small");
-      addCritter(fam,kid.id,1,false,null,reveals,"Bonus for filling the Small pond 💧");   // fused tier-1 critter
+      addCritter(fam,kid.id,1,false,null,reveals,"Bonus for filling the Small pond 💧").fill="small";   // fused tier-1 critter (fill tag → big celebration on reveal)
       kid.buckets.m++;
       checkMedium(fam,kid,reveals);
     }
@@ -1743,7 +1745,7 @@
     if(kid.buckets.m>=cap){
       kid.buckets.m-=cap;
       grant(fam,kid,"medium");
-      addCritter(fam,kid.id,2,false,null,reveals,"Reward for filling the Medium pond 🌊");
+      addCritter(fam,kid.id,2,false,null,reveals,"Reward for filling the Medium pond 🌊").fill="medium";
       kid.choices=(kid.choices||0)+1;                // HYBRID: queue save-vs-keep
     }
   }
@@ -1756,7 +1758,7 @@
     if(kid.buckets.b>=cap){
       kid.buckets.b-=cap;
       grant(fam,kid,"big");
-      addCritter(fam,kid.id,3,false,null,reveals,"Showpiece for filling the Big pond 🪷");   // showpiece
+      addCritter(fam,kid.id,3,false,null,reveals,"Showpiece for filling the Big pond 🪷").fill="big";   // showpiece
     }
   }
 
@@ -2265,15 +2267,22 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     const firstSeen=c.tag==="combo"&&!fam.critters.some(x=>x.id!==c.id&&x.ownerId===c.ownerId&&x.archetype===c.archetype);
     const morph=(c.variant&&c.variant!=='classic')?CritterEngine.variantName(c.variant):null;
     const banners=(firstSeen?'<div class="rl-new">🔭 NEW SPECIES!</div>':'')+(morph?'<div class="rl-morph">🎨 '+esc(morph)+'</div>':'')+(shiny?'<div class="rl-shiny">✨ SHINY!</div>':'');
-    // big, ray-backed celebration for the special moments (legendary / shiny / a
-    // high-tier fusion); a gentler one for everyday hatches.
-    const epic=!calm()&&(shiny||c.rarity>=3||(c.tag==="combo"&&(c.tier||0)>=8));
+    // POND FILL (note 4): filling a reward pond is a BIG dopamine moment — a
+    // golden "POND FILLED!" banner, ray backdrop, and a sustained confetti shower.
+    const FILL={small:{e:"💧",n:"Small Pond"},medium:{e:"🌊",n:"Medium Pond"},big:{e:"🪷",n:"Big Pond"}};
+    const fill=(c.fill&&FILL[c.fill])?FILL[c.fill]:null;
+    // big, ray-backed celebration for the special moments (pond fill / legendary /
+    // shiny / a high-tier fusion); a gentler one for everyday hatches.
+    const epic=!calm()&&(!!fill||shiny||c.rarity>=3||(c.tag==="combo"&&(c.tier||0)>=8));
+    const fillBanner=(fill&&!calm())?`<div class="rl-fill">${fill.e} ${fill.n} FILLED! 🎉</div>`:"";
     // calm mode: a plain, gentle "new critter" — no rarity/shiny/morph hype.
-    const cLabel=calm()?"🥚 New critter!":label, cBanners=calm()?"":banners, cName=calm()?CritterEngine.name(c.archetype):(CritterEngine.name(c.archetype)+" · "+CritterEngine.rarityName(c.rarity));
-    ov.innerHTML=`<div class="reveal-card${epic?' epic':''}">${epic?'<div class="rl-rays"></div>':''}${cBanners}<div class="rl-sub">${cLabel}</div><div class="rl-art">${critterArt(c,{bg:true})}</div><div class="rl-name">${cName}</div><div class="rl-tap">tap to continue</div></div>`;
-    ov.classList.add("show"); confetti(epic); beep(c.rarity>=2||c.special); speak(calm()?"New critter!":(cLabel.replace(/[^\w !]/g,"")+" "+CritterEngine.name(c.archetype)));
+    const cLabel=calm()?(fill?"🎁 Reward unlocked!":"🥚 New critter!"):(fill?"🎁 Reward unlocked!":label), cBanners=calm()?"":(fillBanner+banners), cName=calm()?CritterEngine.name(c.archetype):(CritterEngine.name(c.archetype)+" · "+CritterEngine.rarityName(c.rarity));
+    ov.innerHTML=`<div class="reveal-card${epic?' epic':''}${fill?' fill':''}">${epic?'<div class="rl-rays"></div>':''}${cBanners}<div class="rl-sub">${cLabel}</div><div class="rl-art">${critterArt(c,{bg:true})}</div><div class="rl-name">${cName}</div><div class="rl-tap">tap to continue</div></div>`;
+    ov.classList.add("show"); confetti(epic); beep(c.rarity>=2||c.special||!!fill);
+    if(fill&&!calm()){ setTimeout(()=>confetti(true),650); setTimeout(()=>confetti(true),1300); }   // sustained shower
+    speak(calm()?(fill?"Reward unlocked!":"New critter!"):(fill?("You filled your "+fill.n+"! Reward unlocked!"):(cLabel.replace(/[^\w !]/g,"")+" "+CritterEngine.name(c.archetype))));
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
-    ov.onclick=close; setTimeout(close,c.rarity>=2?2400:1500);
+    ov.onclick=close; setTimeout(close,fill?3400:(c.rarity>=2?2400:1500));
   }
 
   /* ============================================================

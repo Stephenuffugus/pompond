@@ -341,15 +341,22 @@
     const firstSeen=c.tag==="combo"&&!fam.critters.some(x=>x.id!==c.id&&x.ownerId===c.ownerId&&x.archetype===c.archetype);
     const morph=(c.variant&&c.variant!=='classic')?CritterEngine.variantName(c.variant):null;
     const banners=(firstSeen?'<div class="rl-new">🔭 NEW SPECIES!</div>':'')+(morph?'<div class="rl-morph">🎨 '+esc(morph)+'</div>':'')+(shiny?'<div class="rl-shiny">✨ SHINY!</div>':'');
-    // big, ray-backed celebration for the special moments (legendary / shiny / a
-    // high-tier fusion); a gentler one for everyday hatches.
-    const epic=!calm()&&(shiny||c.rarity>=3||(c.tag==="combo"&&(c.tier||0)>=8));
+    // POND FILL (note 4): filling a reward pond is a BIG dopamine moment — a
+    // golden "POND FILLED!" banner, ray backdrop, and a sustained confetti shower.
+    const FILL={small:{e:"💧",n:"Small Pond"},medium:{e:"🌊",n:"Medium Pond"},big:{e:"🪷",n:"Big Pond"}};
+    const fill=(c.fill&&FILL[c.fill])?FILL[c.fill]:null;
+    // big, ray-backed celebration for the special moments (pond fill / legendary /
+    // shiny / a high-tier fusion); a gentler one for everyday hatches.
+    const epic=!calm()&&(!!fill||shiny||c.rarity>=3||(c.tag==="combo"&&(c.tier||0)>=8));
+    const fillBanner=(fill&&!calm())?`<div class="rl-fill">${fill.e} ${fill.n} FILLED! 🎉</div>`:"";
     // calm mode: a plain, gentle "new critter" — no rarity/shiny/morph hype.
-    const cLabel=calm()?"🥚 New critter!":label, cBanners=calm()?"":banners, cName=calm()?CritterEngine.name(c.archetype):(CritterEngine.name(c.archetype)+" · "+CritterEngine.rarityName(c.rarity));
-    ov.innerHTML=`<div class="reveal-card${epic?' epic':''}">${epic?'<div class="rl-rays"></div>':''}${cBanners}<div class="rl-sub">${cLabel}</div><div class="rl-art">${critterArt(c,{bg:true})}</div><div class="rl-name">${cName}</div><div class="rl-tap">tap to continue</div></div>`;
-    ov.classList.add("show"); confetti(epic); beep(c.rarity>=2||c.special); speak(calm()?"New critter!":(cLabel.replace(/[^\w !]/g,"")+" "+CritterEngine.name(c.archetype)));
+    const cLabel=calm()?(fill?"🎁 Reward unlocked!":"🥚 New critter!"):(fill?"🎁 Reward unlocked!":label), cBanners=calm()?"":(fillBanner+banners), cName=calm()?CritterEngine.name(c.archetype):(CritterEngine.name(c.archetype)+" · "+CritterEngine.rarityName(c.rarity));
+    ov.innerHTML=`<div class="reveal-card${epic?' epic':''}${fill?' fill':''}">${epic?'<div class="rl-rays"></div>':''}${cBanners}<div class="rl-sub">${cLabel}</div><div class="rl-art">${critterArt(c,{bg:true})}</div><div class="rl-name">${cName}</div><div class="rl-tap">tap to continue</div></div>`;
+    ov.classList.add("show"); confetti(epic); beep(c.rarity>=2||c.special||!!fill);
+    if(fill&&!calm()){ setTimeout(()=>confetti(true),650); setTimeout(()=>confetti(true),1300); }   // sustained shower
+    speak(calm()?(fill?"Reward unlocked!":"New critter!"):(fill?("You filled your "+fill.n+"! Reward unlocked!"):(cLabel.replace(/[^\w !]/g,"")+" "+CritterEngine.name(c.archetype))));
     let fin=false; const close=()=>{ if(fin)return; fin=true; ov.classList.remove("show"); cb&&cb(); };
-    ov.onclick=close; setTimeout(close,c.rarity>=2?2400:1500);
+    ov.onclick=close; setTimeout(close,fill?3400:(c.rarity>=2?2400:1500));
   }
 
   /* ============================================================
