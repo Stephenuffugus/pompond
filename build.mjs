@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const src = (f) => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8');
 
 // Order matters: store + engine + economy must be defined before app runs.
-const ORDER = ['store.js', 'critter-engine.js', 'evolution.js', 'economy.js', 'emoji-data.js', 'app.js'];
+const ORDER = ['store.js', 'critter-engine.js', 'evolution.js', 'economy.js', 'decor-engine.js', 'emoji-data.js', 'app.js'];
 const core = ORDER.map(f => `\n/* ===== src/${f} ===== */\n` + src(f)).join('\n');
 
 const shell = src('shell.html');

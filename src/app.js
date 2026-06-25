@@ -312,6 +312,19 @@
     };
     return true;
   }
+  // toast once when a kid crosses a decor-unlock milestone. Per-device seen-set in
+  // localStorage (no Firestore); first compute baselines silently (no spam on load).
+  function notifyNewDecor(kid,owned){
+    const key="pp_decor_"+kid.id; const ids=owned.map(d=>d.id);
+    let seen=null; try{ seen=JSON.parse(localStorage.getItem(key)); }catch(e){}
+    if(!Array.isArray(seen)){ try{ localStorage.setItem(key,JSON.stringify(ids)); }catch(e){} return; }
+    const fresh=owned.filter(d=>seen.indexOf(d.id)<0);
+    if(!fresh.length) return;
+    try{ localStorage.setItem(key,JSON.stringify(ids)); }catch(e){}
+    const d=fresh[0];
+    toast((d.emoji||"🎉")+" New pond decoration: "+d.name+"!"); confetti(true); beep(true);
+    speak("New pond decoration! "+d.name);
+  }
   // run on entry; in cloud mode retry once shortly after in case critters are still syncing in.
   function maybeCelebrate(kid){
     celebKid=kid.id; celebShown=false;
@@ -498,7 +511,7 @@
     const ready=invOf(kid.id).filter(i=>i.status==="ready");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>${esc(fam.name)}</h1></div>
-        <span>${showInstall()?'<button class="iconbtn go" id="install">📲</button> ':''}${calm()?"":'<button class="iconbtn" id="climb">🧗</button> '}<button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
+        <span>${showInstall()?'<button class="iconbtn go" id="install">📲</button> ':''}${calm()?"":'<button class="iconbtn" id="climb">🧗</button> <button class="iconbtn" id="decor">🏡</button> '}<button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
       <div class="me" style="--kc:${kid.color}">
         <div class="disc">${kid.emoji}</div>
         <div class="info"><h2>${esc(kid.name)}'s Pond</h2>
@@ -521,6 +534,7 @@
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Drag critters to move them, tap to see what they're for!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";combineMode=false;combineSel=[];render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
+    const dcb=app.querySelector("#decor"); if(dcb)dcb.onclick=()=>decorModal(kid);
     const cotd=app.querySelector("#cotdbtn"); if(cotd)cotd.onclick=()=>{ const fa=featuredArch(); const nm=CritterEngine.name(fa); toast("⭐ "+nm+" — do chores & mix critters to discover it!"); speak(nm+". Do chores and mix critters to find it!"); };
     const clb=app.querySelector("#climb"); if(clb)clb.onclick=()=>climbModal(kid);
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
@@ -606,6 +620,19 @@
     [[34,44],[62,56],[48,70]].forEach(([x,y],i)=>{const rp=document.createElement("div");rp.className="ripple";
       rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";water.appendChild(rp);});
     stage.appendChild(water);
+    // Pond DECORATIONS (note 3b): unlocked cosmetic items at fixed slots, behind
+    // the critters. Which ones a kid has is derived live from their stats — no
+    // stored data. Appended after the water + before critters so critters sit on top.
+    if(typeof DecorEngine!=="undefined"){
+      const stats={ palms:kid.palms||0, streak:kid.streak||0, maxTier:all.reduce((m,c)=>Math.max(m,c.tier||0),0), critters:foundOf(kid.id).length };
+      const owned=DecorEngine.unlocked(stats);
+      if(owned.length){ const dl=document.createElement("div"); dl.className="ponddecor";
+        owned.forEach(d=>{ const el=document.createElement("div"); el.className="decor"+(d.float?" float":"");
+          el.style.left=d.x+"%"; el.style.top=d.y+"%"; el.style.width=d.w+"px"; el.style.height=d.w+"px";
+          el.innerHTML=DecorEngine.render(d.id); dl.appendChild(el); });
+        stage.appendChild(dl); }
+      notifyNewDecor(kid,owned);
+    }
     const n=list.length;
     if(!n){const em=document.createElement("div");em.className="empty";
       em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";stage.appendChild(em);}
@@ -949,6 +976,20 @@
       s.querySelector(".cancel").onclick=()=>dexModal(kid);
       s.querySelectorAll(".sdcell[data-id]").forEach(el=>el.onclick=()=>{ const c=fam.critters.find(x=>x.id===el.dataset.id); if(c)inspectCritter(c); });
     });
+  }
+  // Pond-decor gallery (note 3b): what's placed + what's still locked, with the
+  // plain-language way to unlock each. Decorations appear automatically in the pond.
+  function decorModal(kid){
+    const stats={ palms:kid.palms||0, streak:kid.streak||0, maxTier:crittersOf(kid.id).reduce((m,c)=>Math.max(m,c.tier||0),0), critters:foundOf(kid.id).length };
+    const all=DecorEngine.all(); const gotN=all.filter(d=>d.need(stats)).length;
+    const cells=all.map(d=>{ const got=d.need(stats);
+      return `<div class="decoritem${got?"":" locked"}"><div class="decart">${DecorEngine.render(d.id)}</div>`
+        +`<div class="decname">${esc(d.name)}</div>`
+        +`<div class="decstatus">${got?"✓ In your pond":"🔒 "+esc(d.hint)}</div></div>`; }).join("");
+    openSheet(`<h3>🏡 Pond Decorations <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${gotN}/${all.length}</span></h3>
+      <p style="font-weight:700;color:var(--soft);font-size:12px;margin:-6px 0 12px">Keep doing chores, building streaks, and mixing critters — new decorations appear in your pond automatically! 🌟</p>
+      <div class="decgrid">${cells}</div>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{ s.querySelector(".cancel").onclick=closeSheet; });
   }
   function dexModal(kid){
     // The pond live-syncs only recent critters (cost bound); the Dex can page in

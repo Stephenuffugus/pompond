@@ -150,6 +150,20 @@
     pointer-events:none;animation:ripple 6s ease-out infinite}
   @keyframes ripple{0%{transform:scale(.4);opacity:.0}25%{opacity:.55}100%{transform:scale(2.1);opacity:0}}
   .pond .empty{position:absolute;inset:0;display:grid;place-items:center;color:#f1fffd;font-weight:800;text-align:center;padding:20px;font-size:15px;text-shadow:0 2px 8px rgba(0,30,45,.45)}
+  /* pond decorations (note 3b) — fixed-slot cosmetic items behind the critters */
+  .ponddecor{position:absolute;inset:0;pointer-events:none}
+  .decor{position:absolute;transform:translate(-50%,-100%);pointer-events:none}
+  .decor.float{animation:lilybob 9s ease-in-out infinite}
+  .decor svg{display:block;width:100%;height:100%;filter:drop-shadow(0 4px 4px rgba(0,40,40,.22))}
+  /* decor gallery */
+  .decgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .decoritem{background:#f3faf8;border:2px solid var(--line);border-radius:16px;padding:10px;text-align:center}
+  .decoritem .decart{width:74px;height:74px;margin:0 auto 4px}
+  .decoritem .decname{font-weight:800;font-size:14px;color:var(--ink)}
+  .decoritem .decstatus{font-weight:700;font-size:11.5px;color:var(--accent);margin-top:2px}
+  .decoritem.locked{opacity:.92}
+  .decoritem.locked .decart{filter:grayscale(.85) opacity(.5)}
+  .decoritem.locked .decstatus{color:var(--soft)}
   .critter{position:absolute;width:54px;height:54px;animation:bob 6s ease-in-out infinite;
     cursor:grab;touch-action:none;filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
   .critter.dragging{animation:none;z-index:6;cursor:grabbing;filter:drop-shadow(0 12px 9px rgba(0,40,40,.4))}

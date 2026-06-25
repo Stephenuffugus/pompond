@@ -150,6 +150,20 @@
     pointer-events:none;animation:ripple 6s ease-out infinite}
   @keyframes ripple{0%{transform:scale(.4);opacity:.0}25%{opacity:.55}100%{transform:scale(2.1);opacity:0}}
   .pond .empty{position:absolute;inset:0;display:grid;place-items:center;color:#f1fffd;font-weight:800;text-align:center;padding:20px;font-size:15px;text-shadow:0 2px 8px rgba(0,30,45,.45)}
+  /* pond decorations (note 3b) — fixed-slot cosmetic items behind the critters */
+  .ponddecor{position:absolute;inset:0;pointer-events:none}
+  .decor{position:absolute;transform:translate(-50%,-100%);pointer-events:none}
+  .decor.float{animation:lilybob 9s ease-in-out infinite}
+  .decor svg{display:block;width:100%;height:100%;filter:drop-shadow(0 4px 4px rgba(0,40,40,.22))}
+  /* decor gallery */
+  .decgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .decoritem{background:#f3faf8;border:2px solid var(--line);border-radius:16px;padding:10px;text-align:center}
+  .decoritem .decart{width:74px;height:74px;margin:0 auto 4px}
+  .decoritem .decname{font-weight:800;font-size:14px;color:var(--ink)}
+  .decoritem .decstatus{font-weight:700;font-size:11.5px;color:var(--accent);margin-top:2px}
+  .decoritem.locked{opacity:.92}
+  .decoritem.locked .decart{filter:grayscale(.85) opacity(.5)}
+  .decoritem.locked .decstatus{color:var(--soft)}
   .critter{position:absolute;width:54px;height:54px;animation:bob 6s ease-in-out infinite;
     cursor:grab;touch-action:none;filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
   .critter.dragging{animation:none;z-index:6;cursor:grabbing;filter:drop-shadow(0 12px 9px rgba(0,40,40,.4))}
@@ -1809,6 +1823,98 @@
 });
 
 
+/* ===== src/decor-engine.js ===== */
+/* ============================================================
+   DECOR ENGINE — predetermined cosmetic pond decorations (note 3b).
+   Pure vector SVG (no images, no Firestore, no per-item generation). WHICH
+   decorations a kid has is DERIVED LIVE from their stats (total Poms ever
+   earned, streak, best critter tier) — so nothing new is stored anywhere.
+   Each item has a FIXED slot so the scene always composes. Decorations sit
+   BEHIND the critters. Add a decoration = add one row to DECOR + one render
+   case. Milestones are append-only; existing ones never change.
+
+   Browser-only (cosmetic) — NOT synced to Cloud Functions.
+   ============================================================ */
+(function (root, factory) {
+  const mod = factory();
+  if (typeof module !== 'undefined' && module.exports) module.exports = mod;
+  root.DecorEngine = mod;
+})(typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
+
+  // need(s): unlocked when true. s = {palms, streak, maxTier, critters}.
+  // x,y = slot center in pond % (art is anchored bottom-center on that point).
+  // w = on-screen width in px. hint = plain-language unlock requirement.
+  const DECOR = [
+    { id:'lily',       name:'Lily Patch',  emoji:'🪷', x:24, y:80, w:66,  need:s=>s.palms>=3,    hint:'Earn 3 Poms', float:true },
+    { id:'dock',       name:'Wooden Dock', emoji:'🪵', x:50, y:95, w:108, need:s=>s.palms>=15,   hint:'Earn 15 Poms' },
+    { id:'bench',      name:'Pond Bench',  emoji:'🪑', x:85, y:82, w:54,  need:s=>s.streak>=5,   hint:'Keep a 5-day streak' },
+    { id:'boat',       name:'Rowboat',     emoji:'🛶', x:66, y:60, w:72,  need:s=>s.maxTier>=3,  hint:'Grow a critter to tier 3 — combine!', float:true },
+    { id:'swing',      name:'Tree Swing',  emoji:'🌳', x:14, y:48, w:78,  need:s=>s.palms>=40,   hint:'Earn 40 Poms' },
+    { id:'fountain',   name:'Fountain',    emoji:'⛲', x:50, y:30, w:60,  need:s=>s.palms>=70,   hint:'Earn 70 Poms' },
+    { id:'bridge',     name:'Arch Bridge', emoji:'🌉', x:50, y:22, w:118, need:s=>s.maxTier>=6,  hint:'Grow a critter to tier 6' },
+    { id:'lighthouse', name:'Lighthouse',  emoji:'🗼', x:87, y:30, w:54,  need:s=>s.palms>=130,  hint:'Earn 130 Poms' }
+  ];
+
+  // ---- art: each returns an SVG (viewBox 0 0 100 100), soft pastel + white-ish
+  //      outlines to match the critters. Bottom of the art ≈ y=96 so it "stands". ----
+  function art(id) {
+    switch (id) {
+      case 'lily':
+        return `<ellipse cx="50" cy="78" rx="34" ry="13" fill="#4FA86A" stroke="#fff" stroke-width="1.6"/><path d="M50 65 l3 13 -6 0z" fill="#3C8A57"/>`
+          + `<ellipse cx="26" cy="86" rx="20" ry="8" fill="#5BB57A" stroke="#fff" stroke-width="1.4"/>`
+          + `<g transform="translate(60,70)">${[0,60,120,180,240,300].map(d=>`<ellipse cx="${(8*Math.cos(d*Math.PI/180)).toFixed(1)}" cy="${(8*Math.sin(d*Math.PI/180)).toFixed(1)}" rx="6" ry="4" fill="#FF8FC2" transform="rotate(${d} ${(8*Math.cos(d*Math.PI/180)).toFixed(1)} ${(8*Math.sin(d*Math.PI/180)).toFixed(1)})"/>`).join('')}<circle r="5" fill="#FFD24B"/></g>`;
+      case 'dock': {
+        const posts = [16,38,62,84].map(x=>`<rect x="${x-3}" y="58" width="6" height="34" rx="2" fill="#8a5a36"/>`).join('');
+        const planks = [60,68,76,84].map(y=>`<rect x="10" y="${y}" width="80" height="6" rx="2" fill="#b07a45" stroke="#8a5a36" stroke-width="0.8"/>`).join('');
+        return posts + `<rect x="8" y="56" width="84" height="10" rx="3" fill="#c98a52" stroke="#8a5a36" stroke-width="1"/>` + planks;
+      }
+      case 'bench':
+        return `<rect x="18" y="56" width="64" height="9" rx="3" fill="#a9743f" stroke="#7d5128" stroke-width="1"/>`
+          + `<rect x="20" y="38" width="60" height="7" rx="3" fill="#bd854c" stroke="#7d5128" stroke-width="1"/>`
+          + `<rect x="20" y="47" width="60" height="6" rx="3" fill="#bd854c" stroke="#7d5128" stroke-width="1"/>`
+          + `<rect x="24" y="65" width="7" height="26" rx="2" fill="#7d5128"/><rect x="69" y="65" width="7" height="26" rx="2" fill="#7d5128"/>`
+          + `<rect x="24" y="38" width="7" height="22" rx="2" fill="#8a5a30"/><rect x="69" y="38" width="7" height="22" rx="2" fill="#8a5a30"/>`;
+      case 'boat':
+        return `<path d="M14 58 q36 26 72 0 q-8 18 -36 18 q-28 0 -36 -18z" fill="#c45b4a" stroke="#fff" stroke-width="2"/>`
+          + `<path d="M22 60 q28 16 56 0" fill="none" stroke="#f2d3b0" stroke-width="4"/>`
+          + `<rect x="46" y="40" width="4" height="26" rx="2" fill="#8a5a36"/><rect x="50" y="58" width="30" height="4" rx="2" fill="#8a5a36" transform="rotate(20 50 58)"/>`;
+      case 'swing':
+        return `<rect x="40" y="40" width="10" height="52" rx="3" fill="#8a5a36"/>`
+          + `<circle cx="46" cy="34" r="26" fill="#67b85e" stroke="#fff" stroke-width="2"/><circle cx="62" cy="44" r="18" fill="#5aa852" stroke="#fff" stroke-width="2"/><circle cx="30" cy="44" r="16" fill="#73c267" stroke="#fff" stroke-width="2"/>`
+          + `<line x1="58" y1="50" x2="62" y2="78" stroke="#6b4423" stroke-width="2"/><line x1="74" y1="50" x2="72" y2="78" stroke="#6b4423" stroke-width="2"/><rect x="56" y="78" width="22" height="5" rx="2" fill="#a9743f"/>`;
+      case 'fountain':
+        return `<ellipse cx="50" cy="86" rx="36" ry="11" fill="#bcdfe6" stroke="#fff" stroke-width="2"/><path d="M16 82 q34 14 68 0 l0 4 q-34 14 -68 0z" fill="#7fc3d6"/>`
+          + `<rect x="44" y="52" width="12" height="30" rx="3" fill="#cdd6da" stroke="#9aa6ab" stroke-width="1"/><ellipse cx="50" cy="52" rx="20" ry="6" fill="#dde6ea" stroke="#9aa6ab" stroke-width="1"/>`
+          + `<g stroke="#8fd6ec" stroke-width="3" fill="none" stroke-linecap="round" opacity=".9"><path d="M50 50 q-12 -8 -14 -22"/><path d="M50 50 q12 -8 14 -22"/><path d="M50 48 v-26"/></g>`
+          + `<circle cx="36" cy="26" r="2.4" fill="#bfeaf7"/><circle cx="64" cy="26" r="2.4" fill="#bfeaf7"/><circle cx="50" cy="20" r="2.6" fill="#bfeaf7"/>`;
+      case 'bridge':
+        return `<path d="M6 78 q44 -50 88 0" fill="none" stroke="#b07a45" stroke-width="9"/>`
+          + `<path d="M6 86 q44 -50 88 0" fill="none" stroke="#8a5a36" stroke-width="6"/>`
+          + [16,30,46,64,78].map(x=>`<line x1="${x}" y1="${78-Math.max(0,28-Math.abs(50-x)*0.9)}" x2="${x}" y2="86" stroke="#c98a52" stroke-width="3"/>`).join('');
+      case 'lighthouse':
+        return `<path d="M38 92 l4 -54 16 0 4 54z" fill="#f4f4f4" stroke="#cfcfcf" stroke-width="1"/>`
+          + `<path d="M41 70 l18 0 M40 56 l20 0 M42 42 l16 0" stroke="#e0584e" stroke-width="7"/>`
+          + `<rect x="40" y="26" width="20" height="13" rx="2" fill="#7d8a90"/><path d="M38 26 l24 0 -5 -9 -14 0z" fill="#e0584e"/>`
+          + `<rect x="46" y="28" width="8" height="9" fill="#ffe9a8"/><circle cx="50" cy="20" r="3" fill="#ffd24b"/>`;
+      default:
+        return '';
+    }
+  }
+
+  function render(id) {
+    return `<svg viewBox="0 0 100 100" width="100%" height="100%" style="overflow:visible">${art(id)}</svg>`;
+  }
+
+  // which decorations are unlocked for the given derived stats
+  function unlocked(stats) {
+    const s = Object.assign({ palms:0, streak:0, maxTier:0, critters:0 }, stats || {});
+    return DECOR.filter(d => d.need(s));
+  }
+
+  return { DECOR, render, unlocked, all: () => DECOR.slice() };
+});
+
+
 /* ===== src/emoji-data.js ===== */
 /* Pom Pond — emoji library (generated from unicode-emoji-json; do not hand-edit).
    Full Unicode set grouped into the standard categories for the chore icon picker. */
@@ -2130,6 +2236,19 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     };
     return true;
   }
+  // toast once when a kid crosses a decor-unlock milestone. Per-device seen-set in
+  // localStorage (no Firestore); first compute baselines silently (no spam on load).
+  function notifyNewDecor(kid,owned){
+    const key="pp_decor_"+kid.id; const ids=owned.map(d=>d.id);
+    let seen=null; try{ seen=JSON.parse(localStorage.getItem(key)); }catch(e){}
+    if(!Array.isArray(seen)){ try{ localStorage.setItem(key,JSON.stringify(ids)); }catch(e){} return; }
+    const fresh=owned.filter(d=>seen.indexOf(d.id)<0);
+    if(!fresh.length) return;
+    try{ localStorage.setItem(key,JSON.stringify(ids)); }catch(e){}
+    const d=fresh[0];
+    toast((d.emoji||"🎉")+" New pond decoration: "+d.name+"!"); confetti(true); beep(true);
+    speak("New pond decoration! "+d.name);
+  }
   // run on entry; in cloud mode retry once shortly after in case critters are still syncing in.
   function maybeCelebrate(kid){
     celebKid=kid.id; celebShown=false;
@@ -2316,7 +2435,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     const ready=invOf(kid.id).filter(i=>i.status==="ready");
     app.innerHTML=`
       <div class="topbar"><div class="brand">🐸 <h1>${esc(fam.name)}</h1></div>
-        <span>${showInstall()?'<button class="iconbtn go" id="install">📲</button> ':''}${calm()?"":'<button class="iconbtn" id="climb">🧗</button> '}<button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
+        <span>${showInstall()?'<button class="iconbtn go" id="install">📲</button> ':''}${calm()?"":'<button class="iconbtn" id="climb">🧗</button> <button class="iconbtn" id="decor">🏡</button> '}<button class="iconbtn" id="dex">📖</button> <button class="iconbtn" id="leave">⤺</button></span></div>
       <div class="me" style="--kc:${kid.color}">
         <div class="disc">${kid.emoji}</div>
         <div class="info"><h2>${esc(kid.name)}'s Pond</h2>
@@ -2339,6 +2458,7 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       <div class="hint">Finish a chore → earn a ${esc(cname())} → a critter joins your pond. Drag critters to move them, tap to see what they're for!</div>`;
     app.querySelector("#leave").onclick=()=>{meId=null;view="lobby";combineMode=false;combineSel=[];render();};
     app.querySelector("#dex").onclick=()=>dexModal(kid);
+    const dcb=app.querySelector("#decor"); if(dcb)dcb.onclick=()=>decorModal(kid);
     const cotd=app.querySelector("#cotdbtn"); if(cotd)cotd.onclick=()=>{ const fa=featuredArch(); const nm=CritterEngine.name(fa); toast("⭐ "+nm+" — do chores & mix critters to discover it!"); speak(nm+". Do chores and mix critters to find it!"); };
     const clb=app.querySelector("#climb"); if(clb)clb.onclick=()=>climbModal(kid);
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
@@ -2424,6 +2544,19 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
     [[34,44],[62,56],[48,70]].forEach(([x,y],i)=>{const rp=document.createElement("div");rp.className="ripple";
       rp.style.left=x+"%";rp.style.top=y+"%";rp.style.animationDelay=(i*1.7)+"s";water.appendChild(rp);});
     stage.appendChild(water);
+    // Pond DECORATIONS (note 3b): unlocked cosmetic items at fixed slots, behind
+    // the critters. Which ones a kid has is derived live from their stats — no
+    // stored data. Appended after the water + before critters so critters sit on top.
+    if(typeof DecorEngine!=="undefined"){
+      const stats={ palms:kid.palms||0, streak:kid.streak||0, maxTier:all.reduce((m,c)=>Math.max(m,c.tier||0),0), critters:foundOf(kid.id).length };
+      const owned=DecorEngine.unlocked(stats);
+      if(owned.length){ const dl=document.createElement("div"); dl.className="ponddecor";
+        owned.forEach(d=>{ const el=document.createElement("div"); el.className="decor"+(d.float?" float":"");
+          el.style.left=d.x+"%"; el.style.top=d.y+"%"; el.style.width=d.w+"px"; el.style.height=d.w+"px";
+          el.innerHTML=DecorEngine.render(d.id); dl.appendChild(el); });
+        stage.appendChild(dl); }
+      notifyNewDecor(kid,owned);
+    }
     const n=list.length;
     if(!n){const em=document.createElement("div");em.className="empty";
       em.innerHTML="Your pond is empty.<br>Do a chore to hatch your first critter! 🐣";stage.appendChild(em);}
@@ -2767,6 +2900,20 @@ var EMOJI_DATA={"order":["smileys","people","animals","food","travel","activitie
       s.querySelector(".cancel").onclick=()=>dexModal(kid);
       s.querySelectorAll(".sdcell[data-id]").forEach(el=>el.onclick=()=>{ const c=fam.critters.find(x=>x.id===el.dataset.id); if(c)inspectCritter(c); });
     });
+  }
+  // Pond-decor gallery (note 3b): what's placed + what's still locked, with the
+  // plain-language way to unlock each. Decorations appear automatically in the pond.
+  function decorModal(kid){
+    const stats={ palms:kid.palms||0, streak:kid.streak||0, maxTier:crittersOf(kid.id).reduce((m,c)=>Math.max(m,c.tier||0),0), critters:foundOf(kid.id).length };
+    const all=DecorEngine.all(); const gotN=all.filter(d=>d.need(stats)).length;
+    const cells=all.map(d=>{ const got=d.need(stats);
+      return `<div class="decoritem${got?"":" locked"}"><div class="decart">${DecorEngine.render(d.id)}</div>`
+        +`<div class="decname">${esc(d.name)}</div>`
+        +`<div class="decstatus">${got?"✓ In your pond":"🔒 "+esc(d.hint)}</div></div>`; }).join("");
+    openSheet(`<h3>🏡 Pond Decorations <span style="font-size:13px;color:var(--soft);font-family:var(--body)">· ${gotN}/${all.length}</span></h3>
+      <p style="font-weight:700;color:var(--soft);font-size:12px;margin:-6px 0 12px">Keep doing chores, building streaks, and mixing critters — new decorations appear in your pond automatically! 🌟</p>
+      <div class="decgrid">${cells}</div>
+      <div class="sa"><button class="cancel">Close</button></div>`,s=>{ s.querySelector(".cancel").onclick=closeSheet; });
   }
   function dexModal(kid){
     // The pond live-syncs only recent critters (cost bound); the Dex can page in
