@@ -271,8 +271,53 @@
     render();
     if(meId!==kidId||view!=="kid"||!q.length){ if(done)done(); return; }
     let i=0;
-    const next=()=>{ if(i>=q.length){ render(); if(done)done(); return; } showReveal(q[i],()=>{ i++; next(); }); };
+    const next=()=>{ if(i>=q.length){ markSeen(kidId); render(); if(done)done(); return; } showReveal(q[i],()=>{ i++; next(); }); };
     setTimeout(next,160);
+  }
+
+  /* ============================================================
+     LOGIN CELEBRATION (note 2) — when a kid opens their pond holding critters
+     earned since they last looked (e.g. a parent awarded chores/Poms while they
+     were away), greet them with a count + the reasons, then a button that fires
+     the big reveals. "Unseen" = owned critters with createdAt > the per-kid,
+     per-device last-seen timestamp. The first-ever check just BASELINES the pond
+     (no retroactive celebration of critters they already had).
+     ============================================================ */
+  const seenKey=kidId=>"pp_seen_"+kidId;
+  function lastSeenTs(kidId){ try{ return +localStorage.getItem(seenKey(kidId))||0; }catch(e){ return 0; } }
+  function markSeen(kidId){ try{ localStorage.setItem(seenKey(kidId),String(Date.now())); }catch(e){} }
+  function freshFor(kid){ const ts=lastSeenTs(kid.id); return crittersOf(kid.id).filter(c=>(c.createdAt||0)>ts).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)); }
+  let celebKid=null, celebShown=false;
+  const CELEB_REVEAL_CAP=10;            // never run more than this many reveals back-to-back
+  function celebrateLogin(kid){
+    if(!kid||kid.role!=="child") return false;
+    if(lastSeenTs(kid.id)===0){ markSeen(kid.id); return false; }   // baseline silently the first time
+    const fresh=freshFor(kid); if(!fresh.length) return false;
+    const n=fresh.length;
+    const reasons={}; fresh.forEach(c=>{ const r=((c.reason||"").trim())||"A surprise critter"; reasons[r]=(reasons[r]||0)+1; });
+    const items=Object.entries(reasons).slice(0,8).map(([r,ct])=>`<li><span>${esc(r)}</span>${ct>1?`<b>×${ct}</b>`:""}</li>`).join("");
+    const ov=document.getElementById("reveal");
+    ov.innerHTML=`<div class="celebrate-card">
+      <div class="cl-emoji">🎉</div>
+      <h2>Welcome back, ${esc(kid.name)}!</h2>
+      <p class="cl-big">You got <b>${n}</b> new critter${n>1?"s":""}!</p>
+      <div class="cl-reasonbox"><div class="cl-rh">While you were away…</div><ul class="cl-reasons">${items}</ul></div>
+      <button class="cl-go" id="clgo">🎁 See what you got!</button></div>`;
+    ov.classList.add("show"); ov.onclick=null; confetti(true); beep(true);
+    speak("Welcome back "+kid.name+"! You got "+n+" new critter"+(n>1?"s":"")+"!");
+    ov.querySelector("#clgo").onclick=()=>{
+      ov.classList.remove("show");
+      revealQ=fresh.slice(-CELEB_REVEAL_CAP);     // playReveals marks ALL fresh seen at the end
+      playReveals(kid.id);
+    };
+    return true;
+  }
+  // run on entry; in cloud mode retry once shortly after in case critters are still syncing in.
+  function maybeCelebrate(kid){
+    celebKid=kid.id; celebShown=false;
+    const go=()=>{ if(celebShown||view!=="kid"||meId!==celebKid) return; if(celebrateLogin(member(celebKid))) celebShown=true; };
+    go();
+    if(!celebShown && cloudActive()) setTimeout(go,1300);
   }
   function showReveal(c,cb){
     const ov=document.getElementById("reveal");
@@ -391,7 +436,7 @@
       // Cloud: a kid principal can never pass into parent mode even with the PIN.
       if(cloudActive() && Backend.cloud.isParent && !Backend.cloud.isParent()){ toast("Ask a parent to sign in on their device"); return; }
       askPin(ok=>{ if(ok){meId=m.id;view="parent";render();} });
-    }else{ meId=m.id; view="kid"; render(); }
+    }else{ meId=m.id; view="kid"; render(); maybeCelebrate(m); }
   }
   // Cheerleader's read-only window into one kid's progress.
   function openCheerKid(kid){
