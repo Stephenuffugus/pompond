@@ -82,10 +82,15 @@
     return {def, fill:`url(#${id})`};
   }
 
-  // soft body gradient def (cheap radial); returns {def, fill}
+  // soft body gradient def (cheap radial); returns {def, fill}. A tight glossy
+  // hotspot at top-left + a slightly deeper rim give every critter a rounder,
+  // more "collectible" form — subtle, applied uniformly across the whole roster.
   function bodyGrad(t,suffix){
     const id='g'+t.uid+(suffix||'');
-    const def=`<radialGradient id="${id}" cx="37%" cy="26%" r="92%"><stop offset="0%" stop-color="${t.bodyHi||t.bodyL}"/><stop offset="30%" stop-color="${t.bodyL}"/><stop offset="68%" stop-color="${t.body}"/><stop offset="100%" stop-color="${t.bodyD}"/></radialGradient>`;
+    const s=t.sat||62;
+    const hot=`hsl(${t.hue},${Math.min(s+20,98)}%,95%)`;          // small glossy sheen
+    const deep=`hsl(${t.hue},${Math.max(s-8,6)}%,38%)`;           // soft edge shade for roundness
+    const def=`<radialGradient id="${id}" cx="36%" cy="25%" r="94%"><stop offset="0%" stop-color="${hot}"/><stop offset="15%" stop-color="${t.bodyHi||t.bodyL}"/><stop offset="40%" stop-color="${t.bodyL}"/><stop offset="70%" stop-color="${t.body}"/><stop offset="92%" stop-color="${t.bodyD}"/><stop offset="100%" stop-color="${deep}"/></radialGradient>`;
     return {def, fill:`url(#${id})`};
   }
 
