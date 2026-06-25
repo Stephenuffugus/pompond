@@ -147,6 +147,10 @@
   const rewardsTier=t=>fam.rewards.filter(r=>r.tier===t);
   // OWNED critters (not fused-away) — used by the pond + live counts.
   const crittersOf=mid=>fam.critters.filter(c=>c.ownerId===mid&&!c.fused);
+  // note 10: how many critters live in the pond at once. Beyond this, the pond only
+  // renders the most recent (keeps phones smooth) and a banner nudges the kid to Mix
+  // — combining is the intended way to keep a tidy, performant pond.
+  const POND_CAP=20;
   // EVERY critter ever found by this kid, including ones consumed by combining —
   // so the collection screen can show that nothing was truly lost.
   const foundOf=mid=>fam.critters.filter(c=>c.ownerId===mid);
@@ -532,6 +536,7 @@
       ${ready.length?`<div class="label"><span>Rewards to spend 🎉</span><span class="ln"></span></div><div class="tokens" id="tok"></div>`:""}
       <div class="label"><span>My Pond</span><span class="ln"></span>${(!combineMode&&!calm()&&crittersOf(kid.id).length>=2)?`<button class="combinebtn" id="combineBtn">✨ Mix!</button>`:""}</div>
       ${combineMode?`<div class="combinebar"><div class="cbtop"><span id="combinemsg">Tap 2–3 critters to mix ✨</span><span class="cbtns"><button id="combineCancel">Cancel</button><button id="combineGo" disabled>Mix</button></span></div><div class="cbprev" id="combineprev"></div></div>`:""}
+      ${(!combineMode&&!calm()&&crittersOf(kid.id).length>=POND_CAP)?`<button class="pondfull" id="pondfullbtn">🌊 Your pond is full! <b>Tap to Mix critters &amp; make room</b> 🧬</button>`:""}
       <div class="pond" id="pond"></div>
       <div id="dailyrow">${dailyBanner(kid)}</div>
       <div class="label"><span>Do a chore</span><span class="ln"></span></div>
@@ -546,6 +551,7 @@
     const plog=app.querySelector("#palmlog"); if(plog)plog.onclick=()=>palmHistory(kid);
     const kib=app.querySelector("#install"); if(kib)kib.onclick=doInstall;
     const cbtn=app.querySelector("#combineBtn"); if(cbtn)cbtn.onclick=()=>{ combineMode=true; combineSel=[]; render(); };
+    const pfb=app.querySelector("#pondfullbtn"); if(pfb)pfb.onclick=()=>{ combineMode=true; combineSel=[]; render(); };
     if(combineMode){
       const cc=app.querySelector("#combineCancel"); if(cc)cc.onclick=()=>{ combineMode=false; combineSel=[]; render(); };
       const cg=app.querySelector("#combineGo"); if(cg)cg.onclick=()=>{ if(combineSel.length<2)return; const ids=combineSel.slice(); combineMode=false; combineSel=[]; render(); doCombine(kid,ids); };
@@ -595,7 +601,7 @@
       <div class="frac">${val}/${cap}</div><div class="pbar"><i style="width:${pct}%"></i></div></div>`;
   }
   function paintPond(kid){
-    const pond=app.querySelector("#pond"); const all=crittersOf(kid.id); const list=all.slice(-28);
+    const pond=app.querySelector("#pond"); const all=crittersOf(kid.id); const list=all.slice(-POND_CAP);
     pond.innerHTML="";
     // Pond is ALWAYS DAY (note 3) — the night/dusk moods made it look dark; kids
     // play at all hours and want a bright, sunny pond. (The dawn/dusk/night CSS is

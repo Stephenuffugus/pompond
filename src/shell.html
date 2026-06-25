@@ -164,8 +164,11 @@
   .decoritem.locked{opacity:.92}
   .decoritem.locked .decart{filter:grayscale(.85) opacity(.5)}
   .decoritem.locked .decstatus{color:var(--soft)}
+  /* perf (note 10): the contact shadow lives on ::after (cheap); NO filter:drop-shadow
+     here — filtering the (already filter-outlined) SVG every animation frame is what
+     made a full pond lag on phones. contain isolates each critter's layout/paint. */
   .critter{position:absolute;width:54px;height:54px;animation:bob 6s ease-in-out infinite;
-    cursor:grab;touch-action:none;filter:drop-shadow(0 5px 4px rgba(0,40,40,.28))}
+    cursor:grab;touch-action:none;contain:layout paint;will-change:transform}
   .critter.dragging{animation:none;z-index:6;cursor:grabbing;filter:drop-shadow(0 12px 9px rgba(0,40,40,.4))}
   .critter.csel{animation:none;z-index:5;border-radius:50%;box-shadow:0 0 0 4px #fff,0 0 0 8px var(--accent)}
   .critter.klock{opacity:.4;filter:grayscale(.6) drop-shadow(0 5px 4px rgba(0,40,40,.28))}
@@ -180,6 +183,10 @@
   .choicebanner b{font-weight:900}
   .choicebanner:active{transform:scale(.97)}
   @keyframes choicebob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  /* pond-full → mix nudge (note 10) */
+  .pondfull{display:block;width:100%;border:none;background:linear-gradient(135deg,#8be9e0,#3FA7A1);color:#fff;font-family:var(--body);font-weight:800;font-size:14.5px;border-radius:16px;padding:13px;margin:0 0 10px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:0 8px 20px -6px rgba(63,167,161,.6);animation:choicebob 2.2s ease-in-out infinite}
+  .pondfull b{font-weight:900}
+  .pondfull:active{transform:scale(.97)}
   .combinebtn::after{content:"";position:absolute;top:0;left:-65%;width:45%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);transform:skewX(-18deg);animation:mixshine 3.4s ease-in-out infinite;pointer-events:none}
   @keyframes mixpulse{0%,100%{box-shadow:0 8px 20px -5px rgba(63,167,161,.7),0 0 0 0 rgba(120,225,215,.55),inset 0 1px 0 rgba(255,255,255,.45)}50%{box-shadow:0 10px 24px -5px rgba(63,167,161,.8),0 0 0 10px rgba(120,225,215,0),inset 0 1px 0 rgba(255,255,255,.45)}}
   @keyframes mixshine{0%{left:-65%}45%,100%{left:140%}}
