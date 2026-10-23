@@ -1383,13 +1383,12 @@
       <div class="toggle">🔊 Read aloud <span style="font-weight:700;font-size:12px;color:var(--soft)">(speaks chores & critters for non-readers)</span> <div class="sw ${st.readAloud?"on":""}" id="ra"><i></i></div></div>
       <div class="field"><label>What are points called? <span style="text-transform:none;font-weight:700">(Pom, Gem, Star…)</span></label><input id="cy" maxlength="12" value="${esc(cname())}"></div>
       <div class="field"><label>Parent PIN</label><input id="pn" inputmode="numeric" maxlength="4" value="${esc(st.parentPin)}"></div>
-      ${cloudActive()?`<div class="field"><label>🔔 Daily reminders</label>
+      ${cloudActive()&&Backend.cloud.pushSupported&&Backend.cloud.pushSupported()?`<div class="field"><label>🔔 Daily reminders</label>
         <div class="toggle">Remind us to do chores <div class="sw ${Backend.cloud.pushOn&&Backend.cloud.pushOn()?"on":""}" id="rem"><i></i></div></div>
         <div class="minrow" id="remtime" style="${Backend.cloud.pushOn&&Backend.cloud.pushOn()?"":"display:none"};margin-top:8px">
           <span style="font-weight:800;color:var(--soft)">at</span>
           <select id="remhour" style="flex:1">${[7,8,15,16,17,18,19,20].map(h=>`<option value="${h}" ${h===remHour()?"selected":""}>${fmtHour(h)}</option>`).join("")}</select>
-          <button class="iconbtn" id="remtest" style="height:40px">Test</button></div>
-        ${(Backend.cloud.pushSupported&&Backend.cloud.pushSupported())?"":`<div class="hint" style="margin-top:6px">⚠️ A grown-up needs to add a Web-Push key in the Firebase console to switch these on.</div>`}</div>`:""}
+          <button class="iconbtn" id="remtest" style="height:40px">Test</button></div></div>`:""}   <!-- 2026-10-23: the whole reminders field waits for the Web-Push key (firebase-config.js vapidKey); families never see a developer note -->
       ${cloudActive()&&Backend.cloud.joinCodeField?Backend.cloud.joinCodeField():""}
       ${cloudActive()&&Backend.cloud.grownupCodeField?Backend.cloud.grownupCodeField():""}
       ${cloudActive()&&Backend.cloud.cheerCodeField?Backend.cloud.cheerCodeField():""}
